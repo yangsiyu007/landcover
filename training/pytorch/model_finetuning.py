@@ -497,7 +497,7 @@ if __name__ == "__main__":
         'optimizer_method': torch.optim.Adam, #, torch.optim.SGD],
         'learning_rate': 0.004, # [0.001, 0.002, 0.003, 0.004, 0.01, 0.03],
         'lr_schedule_step_size': 1000,  # [5],
-        'mask_id': 4, #  [0, 4, 7, 11] # range(12) # [4], # mask-id 5 --> 10 px / patch
+        'mask_id': 0, #  [0, 4, 7, 11] # range(12) # [4], # mask-id 5 --> 10 px / patch
         'n_epochs': 50,
     }
 
