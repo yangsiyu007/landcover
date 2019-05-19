@@ -15,6 +15,8 @@ from training.pytorch.data_loader import DataGenerator
 from torch.utils import data
 from torch.autograd import Variable
 from einops import rearrange
+import pdb
+import scipy.misc
 
 from web_tool.ServerModelsNIPSGroupNorm import GroupParams
 
@@ -87,6 +89,9 @@ def run_model_on_tile(model, naip_tile, output_file_path, batch_size=32):
     y_hat = predict_entire_image_unet_fine(model, naip_tile)
     # (h, w, c)
     np.save(output_file_path, y_hat)
+    out  =  np.argmax(y_hat, axis=-1)
+    pdb.set_trace()
+    scipy.misc.imsave('outfile.jpg', image_array)
     return np.argmax(y_hat, axis=-1)
     # (h, w)
 

@@ -34,21 +34,21 @@ for num_patches in ${NUMS_PATCHES[*]}
 do
     MODELS_DIR="/mnt/blobfuse/train-output/conditioning/models/backup_unet_gn_isotropic_nn9/finetuning/test/test${TEST_REGION}/${num_patches}_patches_one_point"
 #
-    for random_seed in {3..5}
+    for random_seed in {1..1}
 #
     do
 #	# Train fine-tuned model
-	python training/pytorch/model_finetuning.py \
-	       --model_file "/mnt/blobfuse/train-output/conditioning/models/backup_unet_gn_isotropic_nn9/training/checkpoint_best.pth.tar" \
-	       --training_patches_fn "training/data/finetuning/sampled/test${TEST_REGION}_train_patches_rand_${num_patches}_${random_seed}.txt" \
-	       --validation_patches_fn "training/data/finetuning/sampled/test${TEST_REGION}_train_patches_rand_${num_patches}_${random_seed}.txt" \
-	       --log_fn "${MODELS_DIR}/rand_${num_patches}_${random_seed}/train_results.csv" \
-	       --model_output_directory "${MODELS_DIR}/rand_${num_patches}_${random_seed}"
+	#python training/pytorch/model_finetuning.py \
+	 #      --model_file "/mnt/blobfuse/train-output/conditioning/models/backup_unet_gn_isotropic_nn9/training/checkpoint_best.pth.tar" \
+	  #     --training_patches_fn "training/data/finetuning/sampled/test${TEST_REGION}_train_patches_rand_${num_patches}_${random_seed}.txt" \
+	  #     --validation_patches_fn "training/data/finetuning/sampled/test${TEST_REGION}_train_patches_rand_${num_patches}_${random_seed}.txt" \
+	  #     --log_fn "${MODELS_DIR}/rand_${num_patches}_${random_seed}/train_results.csv" \
+	  #     --model_output_directory "${MODELS_DIR}/rand_${num_patches}_${random_seed}"
 
 	# Test fine-tuned models
 	MODELS=(
 	#    "/mnt/blobfuse/train-output/conditioning/models/backup_unet_gn_isotropic_nn9/finetuning/test/test${TEST_REGION}/${num_patches}_patches_one_point/rand_${num_patches}_${random_seed}/finetuned_unet_gn.pth_group_params_lr_0.002500_epoch_12.tar"
-	    "/mnt/blobfuse/train-output/conditioning/models/backup_unet_gn_isotropic_nn9/finetuning/test/test${TEST_REGION}/${num_patches}_patches_one_point/rand_${num_patches}_${random_seed}/finetuned_unet_gn.pth_last_k_layers_lr_0.010000_epoch_12_last_k_1.tar"
+	    "/mnt/blobfuse/train-output/conditioning/models/backup_unet_gn_isotropic_nn9/finetuning/test/test${TEST_REGION}/${num_patches}_patches_one_point/rand_${num_patches}_${random_seed}/finetuned_unet_gn.pth_last_k_layers_lr_0.010000_epoch_-1_last_k_1.tar"
 	 #   "/mnt/blobfuse/train-output/conditioning/models/backup_unet_gn_isotropic_nn9/finetuning/test/test${TEST_REGION}/${num_patches}_patches_one_point/rand_${num_patches}_${random_seed}/finetuned_unet_gn.pth_last_k_layers_lr_0.005000_epoch_49_last_k_2.tar"
 	  #  "/mnt/blobfuse/train-output/conditioning/models/backup_unet_gn_isotropic_nn9/finetuning/test/test${TEST_REGION}/${num_patches}_patches_one_point/rand_${num_patches}_${random_seed}/finetuned_unet_gn.pth_last_k_layers_lr_0.001000_epoch_39_last_k_3.tar"
 	)
