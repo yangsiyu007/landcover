@@ -21,8 +21,8 @@ export PYTHONPATH=.
 
 echo "model, area, tile_type, tile_index, mean_IoU, pixel_accuracy, tile_path, predictions_path"
 
-#NUMS_PATCHES=(10 40 100 200 400 1000 2000)
-NUMS_PATCHES=(1000 2000)
+NUMS_PATCHES=(10 40 100 200 400 1000 2000)
+#NUMS_PATCHES=(1000 2000)
 
 
 # Test original model
@@ -34,7 +34,7 @@ for num_patches in ${NUMS_PATCHES[*]}
 do
     MODELS_DIR="/mnt/blobfuse/train-output/conditioning/models/backup_unet_gn_isotropic_nn9/finetuning/test/test${TEST_REGION}/${num_patches}_patches_one_point"
 #
-    for random_seed in {1..2}
+    for random_seed in {3..5}
 #
     do
 #	# Train fine-tuned model
@@ -48,7 +48,7 @@ do
 	# Test fine-tuned models
 	MODELS=(
 	#    "/mnt/blobfuse/train-output/conditioning/models/backup_unet_gn_isotropic_nn9/finetuning/test/test${TEST_REGION}/${num_patches}_patches_one_point/rand_${num_patches}_${random_seed}/finetuned_unet_gn.pth_group_params_lr_0.002500_epoch_12.tar"
-	    "/mnt/blobfuse/train-output/conditioning/models/backup_unet_gn_isotropic_nn9/finetuning/test/test${TEST_REGION}/${num_patches}_patches_one_point/rand_${num_patches}_${random_seed}/finetuned_unet_gn.pth_last_k_layers_lr_0.010000_epoch_19_last_k_1.tar"
+	    "/mnt/blobfuse/train-output/conditioning/models/backup_unet_gn_isotropic_nn9/finetuning/test/test${TEST_REGION}/${num_patches}_patches_one_point/rand_${num_patches}_${random_seed}/finetuned_unet_gn.pth_last_k_layers_lr_0.010000_epoch_12_last_k_1.tar"
 	 #   "/mnt/blobfuse/train-output/conditioning/models/backup_unet_gn_isotropic_nn9/finetuning/test/test${TEST_REGION}/${num_patches}_patches_one_point/rand_${num_patches}_${random_seed}/finetuned_unet_gn.pth_last_k_layers_lr_0.005000_epoch_49_last_k_2.tar"
 	  #  "/mnt/blobfuse/train-output/conditioning/models/backup_unet_gn_isotropic_nn9/finetuning/test/test${TEST_REGION}/${num_patches}_patches_one_point/rand_${num_patches}_${random_seed}/finetuned_unet_gn.pth_last_k_layers_lr_0.001000_epoch_39_last_k_3.tar"
 	)
