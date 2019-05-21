@@ -25,7 +25,7 @@ query_method_dir="${ACTIVE_LEARNING_STRATEGY}"
 
 MODELS_DIR="/mnt/blobfuse/train-output/conditioning/models/backup_unet_gn_isotropic_nn9/finetuning/test/test${TEST_REGION}/${query_method_dir}"
 mkdir "${MODELS_DIR}"
-RESULTS_FILE="${MODELS_DIR}/fine_tune_test_results.csv"
+RESULTS_FILE="${MODELS_DIR}/fine_tune_test_results_group_params.csv"
 rm ${RESULTS_FILE}
 
 touch $RESULTS_FILE

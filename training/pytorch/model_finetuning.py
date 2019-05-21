@@ -671,12 +671,12 @@ def hyper_parameters_fixed(hyper_parameters):
     experiment_configs = []
 
     # Add last-k-layers hypers
-    for last_k_layers, learning_rate in [(1, 0.01), (2, 0.005), (3, 0.001)]:
+    '''for last_k_layers, learning_rate in [(1, 0.01), (2, 0.005), (3, 0.001)]:
         new_hyper_parameters = copy.deepcopy(hyper_parameters)
         new_hyper_parameters['method_name'] = 'last_k_layers'
         new_hyper_parameters['last_k_layers'] = last_k_layers
         new_hyper_parameters['learning_rate'] = learning_rate
-        experiment_configs += [(new_hyper_parameters['method_name'], finetune_last_k_layers, new_hyper_parameters)]
+        experiment_configs += [(new_hyper_parameters['method_name'], finetune_last_k_layers, new_hyper_parameters)]'''
 
     # Add group-params method
     new_hyper_parameters = copy.deepcopy(hyper_parameters)
