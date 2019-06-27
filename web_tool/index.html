@@ -29,7 +29,7 @@
     <div id="map"></div>
 
     <div id="privacy" class="leaflet-container">
-        <a href="https://privacy.microsoft.com/en-US/privacystatement" target="_blank">Privacy Statement</a>
+        <a href="https://privacy.microsoft.com/en-US/privacystatement" target="_blank">Privacy & Cookies</a>
     </div>
     
     <div id="sidebar" class="sidebar">
@@ -308,6 +308,12 @@
             logoControl.append("<span class='logo-text-small'>Version: 0.7</span>");
             
             $(".leaflet-top.leaflet-left").append(logoControl)
+
+            if(args.maxTime !== null){
+                var timerControl = $("<div class='leaflet-control label-area'></div>");
+                timerControl.append("<div class='label-text'>Time remaining <span id='timer'>00:00</span></div>");
+                $(".leaflet-top.leaflet-left").append(timerControl);
+            }
 
             //----------------------------------------------------------------------
             // Setup leaflet-control-geocoder plugin

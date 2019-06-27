@@ -73,12 +73,12 @@ class Heatmap():
 
 
 class AugmentationState():
-    #BASE_DIR = "output/"
+    BASE_DIR = "/mnt/blobfuse/pred-output/user_study/user_study_version_2_local/"
     debug_mode = False
-    BASE_DIR = "/mnt/blobfuse/pred-output/user_study/testing/"
-    current_snapshot_string = get_random_string(8)
     current_snapshot_idx = 0
     model = None
+
+    created_dir = False
 
     current_transform = ()
     current_naip = None
@@ -88,27 +88,35 @@ class AugmentationState():
 
     @staticmethod
     def reset(soft=False):
-        if not soft:
+        if not soft: # the soft parameter won't call the model reset - we need this when we are loading up an existing trained model
             AugmentationState.model.reset() # can't fail, so don't worry about it
-        AugmentationState.current_snapshot_string = get_random_string(8)
-        if not AugmentationState.debug_mode:
-            os.makedirs(os.path.join(AugmentationState.BASE_DIR, AugmentationState.current_snapshot_string))
-
+    
         AugmentationState.current_snapshot_idx = 0
         AugmentationState.request_list = []
+        AugmentationState.created_dir = False
 
     @staticmethod
     def save(model_name):
-        snapshot_id = "%s_%d" % (model_name, AugmentationState.current_snapshot_idx)
+        print("Saving state for %s snapshot %d" % (model_name, AugmentationState.current_snapshot_idx))
+        
+        dir_name = os.path.join(AugmentationState.BASE_DIR, model_name)
+        
+        if not AugmentationState.created_dir:
 
-        print("Saving state for %s" % (snapshot_id))
-        model_fn = os.path.join(AugmentationState.BASE_DIR, AugmentationState.current_snapshot_string, "%s_model.p" % (snapshot_id))
-        request_list_fn = os.path.join(AugmentationState.BASE_DIR, AugmentationState.current_snapshot_string, "%s_request_list.p" % (snapshot_id))
+            AugmentationState.created_dir = True
+            if not os.path.exists(dir_name):
+                os.makedirs(dir_name, exist_ok=False)
+            else:
+                print("Experiment already exists, overwriting!")
+             
+        model_fn = os.path.join(dir_name, "%s_%s_model.p" % (model_name, AugmentationState.current_snapshot_idx))
+        request_list_fn = os.path.join(dir_name, "%s_%s_requests.p" % (model_name, AugmentationState.current_snapshot_idx))
 
         if not AugmentationState.debug_mode:
             joblib.dump(AugmentationState.model, model_fn, protocol=pickle.HIGHEST_PROTOCOL)
             joblib.dump(AugmentationState.request_list, request_list_fn, protocol=pickle.HIGHEST_PROTOCOL)
-            AugmentationState.current_snapshot_idx += 1
+        
+        AugmentationState.current_snapshot_idx += 1
         
 #---------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------------------
@@ -143,11 +151,9 @@ def reset_model():
     bottle.response.content_type = 'application/json'
     data = bottle.request.json
     data["time"] = time.ctime()
-    AugmentationState.request_list.append(data) # record this interaction
+    AugmentationState.request_list.append(data.copy()) # record this interaction
 
     Heatmap.reset()
-
-    AugmentationState.save(data["experiment"])
     AugmentationState.reset()
 
     data["message"] = "Reset model"
@@ -160,7 +166,7 @@ def retrain_model():
     bottle.response.content_type = 'application/json'
     data = bottle.request.json
     data["time"] = time.ctime()
-    AugmentationState.request_list.append(data) # record this interaction
+    AugmentationState.request_list.append(data.copy()) # record this interaction
     
     #
     success, message = AugmentationState.model.retrain(**data["retrainArgs"])
@@ -180,7 +186,7 @@ def record_correction():
     bottle.response.content_type = 'application/json'
     data = bottle.request.json
     data["time"] = time.ctime()
-    AugmentationState.request_list.append(data) # record this interaction
+    AugmentationState.request_list.append(data.copy()) # record this interaction
 
     #
     tlat, tlon = data["extent"]["ymax"], data["extent"]["xmin"]
@@ -230,7 +236,7 @@ def do_undo():
     bottle.response.content_type = 'application/json'
     data = bottle.request.json
     data["time"] = time.ctime()
-    AugmentationState.request_list.append(data) # record this interaction
+    AugmentationState.request_list.append(data.copy()) # record this interaction
 
     # Forward the undo command to the backend model
     success, message, num_undone = AugmentationState.model.undo()
@@ -246,7 +252,7 @@ def pred_patch():
     bottle.response.content_type = 'application/json'
     data = bottle.request.json
     data["time"] = time.ctime()
-    AugmentationState.request_list.append(data) # record this interaction
+    AugmentationState.request_list.append(data.copy()) # record this interaction
 
     # Inputs
     extent = data["extent"]
@@ -323,7 +329,7 @@ def pred_tile():
     bottle.response.content_type = 'application/json'
     data = bottle.request.json
     data["time"] = time.ctime()
-    AugmentationState.request_list.append(data) # record this interaction
+    AugmentationState.request_list.append(data.copy()) # record this interaction
 
     # Inputs
     extent = data["extent"]
@@ -385,7 +391,7 @@ def get_input():
     bottle.response.content_type = 'application/json'
     data = bottle.request.json
     data["time"] = time.ctime()
-    AugmentationState.request_list.append(data) # record this interaction
+    AugmentationState.request_list.append(data.copy()) # record this interaction
 
     # Inputs
     extent = data["extent"]

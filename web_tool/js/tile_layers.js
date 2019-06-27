@@ -89,7 +89,8 @@ var tileLayers = {
             tms:true,
             maxZoom: 20,
             maxNativeZoom: 18,
-            minZoom: 13
+            minZoom: 13,
+            bounds: L.latLngBounds(L.latLng(42.434742170169024, -75.128641990048465), L.latLng(42.461795147871072, -75.092208174367514))
         }),
         "shapes": "shapes/user_study_5_outline.geojson"
     },
