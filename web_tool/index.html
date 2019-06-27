@@ -69,7 +69,7 @@
                             </div>
                             <div class="radio">
                                 <button class="circle jscolor" data-class-name="built" data-jscolor="{valueElement:null,value:'806060',position:'left',zIndex:2001,closable:true,closeText:'Close',onFineChange:'updateClassColor(this)'}"></button>
-                                <label><input type="radio" name="new-class" class="radNewClass" value="built">Built (<span id="label-counts-built">0</span> samples since last retrain)</label>
+                                <label><input type="radio" name="new-class" class="radNewClass" value="built">Built/Impervious (<span id="label-counts-built">0</span> samples since last retrain)</label>
                             </div>
                         </div>
                         <div style="text-align: center; margin-top:10px; margin-bottom:20px;">
@@ -550,6 +550,7 @@
                                 }
                             }, 700);
                         }else{
+                            notifyFailText("Can't label outside the red box");
                             console.debug("Click not in selection");
                         }
                     }
