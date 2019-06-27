@@ -135,6 +135,7 @@ var runUserStudyTimer = function(timeRemaining){
         $("#timer").html(padNumberWithZeros(minutes,2)+":"+padNumberWithZeros(seconds,2));
         window.setTimeout(function(){runUserStudyTimer(timeRemaining-1)}, 1000);
     } else{
+        doRetrain();
         $("#timer").html("00:00");
         $("body").append("<div class='endOfTrial'> Thanks for labeling! Please move on to the next trial. </div>");
         $("body").append("<div class='endOfTrialMask'></div>");
@@ -169,26 +170,16 @@ var setupTrainingSets = function(i){
 
 var getURLArguments = function(){
     var url = new URL(window.location.href);
-    var trainingSetID = url.searchParams.get("trainingSetID");
+
     var userID = url.searchParams.get("userID");
-    var modelID = url.searchParams.get("modelID");
+
     var maxTime = url.searchParams.get("maxTime");
     var backendID = url.searchParams.get("backendID");
     var dataset = url.searchParams.get("dataset");
 
-    /// trainingSetID will override dataset
-    if(trainingSetID === null){
-        trainingSetID = 0;
-        //dataset = "demo_set_1";
-    } else{
-        trainingSetID = parseInt(trainingSetID);
-        //dataset = "user_study_" + trainingSetID;
-    }
 
     if(userID === null) userID = "test";
-    if(maxTime !== null){
-        maxTime = parseInt(maxTime);
-    }
+    if(maxTime !== null) maxTime = parseInt(maxTime);
 
     if(backendID === null){
         backendID = 0;
@@ -196,16 +187,9 @@ var getURLArguments = function(){
         backendID = parseInt(backendID);
     }
 
-    if(modelID === null){
-        if(backendID >= 1 && backendID <= 8){ modelID = "1"}
-        if(backendID >= 9 && backendID <= 16){ modelID = "2"}
-    }
-
     return {
         url: url,
-        trainingSetID: trainingSetID,
         userID: userID,
-        modelID: modelID,
         maxTime: maxTime,
         backendID: backendID,
         dataset: dataset
