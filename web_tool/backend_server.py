@@ -73,7 +73,7 @@ class Heatmap():
 
 
 class AugmentationState():
-    BASE_DIR = "/mnt/blobfuse/pred-output/user_study/user_study_version_2_local/"
+    BASE_DIR = "/mnt/blobfuse/user-study-output/user_study_version_2_local/"
     debug_mode = False
     current_snapshot_idx = 0
     model = None
