@@ -1,4 +1,5 @@
-web_tool/tmp/
+web_tool/shapes/
+web_tool/downloads/
 web_tool/data/
 web_tool/tiles/
 output/
@@ -11,8 +12,10 @@ files_to_sync.txt
 files_not_to_sync.txt
 sync_up.sh
 .idea/
+.vscode/
 mount_remotes_deployment.sh
 mount_remotes_development.sh
 
 data/
 tiles/
+models/

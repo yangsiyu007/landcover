@@ -21,13 +21,13 @@ body {
 .sidebar{
     border: 0 !important;
     right: 20px !important;
+    font-family: "Segoe UI Web (West European)",Segoe UI,-apple-system,BlinkMacSystemFont,Roboto,Helvetica Neue,sans-serif;
 }
 .sidebar-content{
     right: 0 !important;
 }
 .sidebar-header{
     background-color: #19715E;
-    font-family: "Segoe UI Web (West European)",Segoe UI,-apple-system,BlinkMacSystemFont,Roboto,Helvetica Neue,sans-serif;
     font-size: 1.2em;
     letter-spacing: .1rem;
     font-weight: 400;
@@ -37,7 +37,7 @@ body {
     background-color: rgba(255, 255, 255, 0.95);
 }
 
-#inputNAIP{
+#inputImage{
     width: 125px;
     height: 125px;
     margin: 10px;
@@ -138,13 +138,10 @@ a.leaflet-control-slider-toggle {
 
 .logo-area{
     background-color: #19715E;
-    width:300px;
-    height:70px;
-    display: flex !important;
-    flex-basis: auto;
-    flex-grow: 1;
-    align-items: center;
-    font-family: "Segoe UI Web (West European)",Segoe UI,-apple-system,BlinkMacSystemFont,Roboto,Helvetica Neue,sans-serif;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
 }
 
 .logo-text{
@@ -154,8 +151,12 @@ a.leaflet-control-slider-toggle {
     line-height: 1.5;
     color: white;
     padding: 2px;
-    padding-right: 2rem;
-    padding-left: 2rem;
+}
+
+.logo-text-small{
+    line-height: 1.5;
+    color: white;
+    padding: 2px;
 }
 
 .label-area{
@@ -205,7 +206,7 @@ a.leaflet-control-slider-toggle {
 #privacy{
     position:absolute;
     bottom:0px;
-    left:50%;
+    left:40%;
     background-color:rgba(255, 255, 255, 0.7);
     z-index: 9998;
     padding: 0 15px;
@@ -213,4 +214,8 @@ a.leaflet-control-slider-toggle {
 
 #privacy a{
     color:#333;
+}
+
+.ml-1{
+    margin-left:10px;
 }

@@ -5,7 +5,7 @@
 import sys
 import os
 import time
-import pdb
+import collections
 
 import bottle
 import argparse
@@ -21,26 +21,61 @@ import fiona.transform
 import rasterio
 import rasterio.warp
 
+import mercantile
+
 import DataLoader
-import GeoTools
 import Utils
 
 import pickle
 import joblib
 
+import matplotlib
+matplotlib.use("Agg") 
+import matplotlib.cm
+
 from web_tool.frontend_server import ROOT_DIR
 
+from TileLayers import DataLayerTypes, DATA_LAYERS
 import ServerModelsICLRFormat, ServerModelsCachedFormat, ServerModelsICLRDynamicFormat, ServerModelsNIPS, ServerModelsNIPSGroupNorm
-
 
 def get_random_string(length):
     alphabet = "abcdefghijklmnopqrstuvwxyz"
-    return ''.join([alphabet[np.random.randint(0, len(alphabet))] for i in range(length)])
+    return "".join([alphabet[np.random.randint(0, len(alphabet))] for i in range(length)])
+
+class Heatmap():
+    count_dict = collections.defaultdict(int)
+    cmap = matplotlib.cm.get_cmap("Reds")
+    norm = matplotlib.colors.Normalize(vmin=0, vmax=20, clip=True)
+
+    @staticmethod
+    def increment(z,y,x):
+        #print("Incrementing", (x,y,z))
+        while z > 1:
+            key = (z,y,x)
+            Heatmap.count_dict[key] += 1
+            tile = mercantile.Tile(x,y,z)
+            tile = mercantile.parent(tile)
+            x,y,z = tile.x, tile.y, tile.z
+
+    def get(z,y,x):
+        #print("Getting", (x,y,z))
+        key = (z,y,x)
+        val = Heatmap.count_dict[key]
+        img = np.zeros((256,256,4), dtype=np.uint8)
+        if val != 0:
+            img[:,:] = np.round(np.array(Heatmap.cmap(Heatmap.norm(val))) * 255).astype(int)
+
+        img = cv2.imencode(".png", cv2.cvtColor(img, cv2.COLOR_RGBA2BGRA))[1].tostring()
+        return img
+
+    def reset():
+        Heatmap.count_dict = collections.defaultdict(int)
+
 
 class AugmentationState():
     #BASE_DIR = "output/"
     debug_mode = False
-    BASE_DIR = "/mnt/blobfuse/pred-output/user_study/mturk/"
+    BASE_DIR = "/mnt/blobfuse/pred-output/user_study/testing/"
     current_snapshot_string = get_random_string(8)
     current_snapshot_idx = 0
     model = None
@@ -52,8 +87,9 @@ class AugmentationState():
     request_list = []
 
     @staticmethod
-    def reset():
-        AugmentationState.model.reset() # can't fail, so don't worry about it
+    def reset(soft=False):
+        if not soft:
+            AugmentationState.model.reset() # can't fail, so don't worry about it
         AugmentationState.current_snapshot_string = get_random_string(8)
         if not AugmentationState.debug_mode:
             os.makedirs(os.path.join(AugmentationState.BASE_DIR, AugmentationState.current_snapshot_string))
@@ -73,22 +109,7 @@ class AugmentationState():
             joblib.dump(AugmentationState.model, model_fn, protocol=pickle.HIGHEST_PROTOCOL)
             joblib.dump(AugmentationState.request_list, request_list_fn, protocol=pickle.HIGHEST_PROTOCOL)
             AugmentationState.current_snapshot_idx += 1
-
-        # TODO: Save other stuff
-        '''
-        print("Saving snapshot %s" % (snapshot_id))
-
-        os.makedirs("output/", exist_ok=True)
-        np.save("output/%s_x.npy" % (snapshot_id), correction_features)
-        np.save("output/%s_y.npy" % (snapshot_id), correction_targets)
-
-        np.save("output/%s_base_y.npy" % (snapshot_id), correction_model_predictions)
-        np.save("output/%s_sizes.npy" % (snapshot_id), correction_sizes)
-
-        joblib.dump(correction_json, "output/%s_pts.p" % (snapshot_id), protocol=pickle.HIGHEST_PROTOCOL)
-        joblib.dump(augment_model, "output/%s.model" % (snapshot_id), protocol=pickle.HIGHEST_PROTOCOL)
-
-        '''
+        
 #---------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------------------
 
@@ -110,11 +131,21 @@ def do_options():
 #---------------------------------------------------------------------------------------
 #---------------------------------------------------------------------------------------
 
+def do_heatmap(z,y,x):
+    bottle.response.content_type = 'image/jpeg'
+    x = x.split("?")[0]
+    return Heatmap.get(int(z),int(y),int(x))
+
+#---------------------------------------------------------------------------------------
+#---------------------------------------------------------------------------------------
+
 def reset_model():
     bottle.response.content_type = 'application/json'
     data = bottle.request.json
     data["time"] = time.ctime()
-    AugmentationState.request_list.append(data)
+    AugmentationState.request_list.append(data) # record this interaction
+
+    Heatmap.reset()
 
     AugmentationState.save(data["experiment"])
     AugmentationState.reset()
@@ -129,9 +160,10 @@ def retrain_model():
     bottle.response.content_type = 'application/json'
     data = bottle.request.json
     data["time"] = time.ctime()
-    AugmentationState.request_list.append(data)
+    AugmentationState.request_list.append(data) # record this interaction
+    
+    #
     success, message = AugmentationState.model.retrain(**data["retrainArgs"])
-
     if success:
         bottle.response.status = 200
         AugmentationState.save(data["experiment"])
@@ -148,17 +180,22 @@ def record_correction():
     bottle.response.content_type = 'application/json'
     data = bottle.request.json
     data["time"] = time.ctime()
-    AugmentationState.request_list.append(data)
+    AugmentationState.request_list.append(data) # record this interaction
 
-
+    #
     tlat, tlon = data["extent"]["ymax"], data["extent"]["xmin"]
     blat, blon = data["extent"]["ymin"], data["extent"]["xmax"]
     color_list = data["colors"]
     class_idx = data["value"] # what we want to switch the class to
-
-    naip_crs, naip_transform, naip_index, padding = AugmentationState.current_transform
-    #src_crs = "epsg:%s" % (src_crs) # Currently src_crs will be a string like 'epsg:####', this might change with different versions of rasterio --Caleb
     origin_crs = "epsg:%d" % (data["extent"]["spatialReference"]["latestWkid"])
+
+    # Add a click to the heatmap
+    xs, ys = fiona.transform.transform(origin_crs, "epsg:4326", [tlon], [tlat])
+    tile = mercantile.tile(xs[0], -ys[0], 17)
+    Heatmap.increment(tile.z, tile.y, tile.x)
+
+    #
+    naip_crs, naip_transform, naip_index, padding = AugmentationState.current_transform
 
     xs, ys = fiona.transform.transform(origin_crs, naip_crs.to_dict(), [tlon,blon], [tlat,blat])
     
@@ -174,19 +211,32 @@ def record_correction():
     bdst_row = int(np.floor(bdst_row))
     bdst_col = int(np.floor(bdst_col))
 
-    tdst_row, bdst_row = min(tdst_row, bdst_row)-padding, max(tdst_row, bdst_row)-padding
-    tdst_col, bdst_col = min(tdst_col, bdst_col)-padding, max(tdst_col, bdst_col)-padding
-
-    print(tdst_row, bdst_row, tdst_col, bdst_col)
+    tdst_row, bdst_row = min(tdst_row, bdst_row), max(tdst_row, bdst_row)
+    tdst_col, bdst_col = min(tdst_col, bdst_col), max(tdst_col, bdst_col)
 
     AugmentationState.model.add_sample(tdst_row, bdst_row, tdst_col, bdst_col, class_idx)
     num_corrected = (bdst_row-tdst_row) * (bdst_col-tdst_col)
 
-    print(num_corrected)
-
     data["message"] = "Successfully submitted correction"
-    data["count"] = num_corrected
     data["success"] = True
+    data["count"] = num_corrected
+
+    bottle.response.status = 200
+    return json.dumps(data)
+
+def do_undo():
+    ''' Method called for POST `/doUndo`
+    '''
+    bottle.response.content_type = 'application/json'
+    data = bottle.request.json
+    data["time"] = time.ctime()
+    AugmentationState.request_list.append(data) # record this interaction
+
+    # Forward the undo command to the backend model
+    success, message, num_undone = AugmentationState.model.undo()
+    data["message"] = message
+    data["success"] = success
+    data["count"] = num_undone
 
     bottle.response.status = 200
     return json.dumps(data)
@@ -194,10 +244,13 @@ def record_correction():
 def pred_patch():
     ''' Method called for POST `/predPatch`'''
     bottle.response.content_type = 'application/json'
+    data = bottle.request.json
+    data["time"] = time.ctime()
+    AugmentationState.request_list.append(data) # record this interaction
 
     # Inputs
-    data = bottle.request.json
     extent = data["extent"]
+    dataset = data["dataset"]
     color_list = data["colors"]
 
     # ------------------------------------------------------
@@ -205,21 +258,29 @@ def pred_patch():
     #   Transform the input extent into a shapely geometry
     #   Find the tile assosciated with the geometry
     # ------------------------------------------------------
-    try:
-        naip_file_name = DataLoader.lookup_tile_by_geom(extent)
-    except ValueError as e:
-        print(e)
-        bottle.response.status = 400
-        return json.dumps({"error": str(e)})
-
+    
     # ------------------------------------------------------
     # Step 2
     #   Load the input data sources for the given tile  
     # ------------------------------------------------------
-    padding = 20
-    naip_data, naip_crs, naip_transform, naip_bounds, naip_index = DataLoader.get_data_by_extent(naip_file_name, extent, DataLoader.GeoDataTypes.NAIP, padding=padding)
-    naip_data = np.rollaxis(naip_data, 0, 3) # we do this here instead of get_data_by_extent because not all GeoDataTypes will have a channel dimension
 
+    if dataset not in DATA_LAYERS:
+        raise ValueError("Dataset doesn't seem to be valid, do the datasets in js/tile_layers.js correspond to those in TileLayers.py")
+
+    if DATA_LAYERS[dataset]["data_layer_type"] == DataLayerTypes.ESRI_WORLD_IMAGERY:
+        padding = 0.0005
+        naip_data, naip_crs, naip_transform, naip_bounds, naip_index = DataLoader.get_esri_data_by_extent(extent, padding=padding)
+    elif DATA_LAYERS[dataset]["data_layer_type"] == DataLayerTypes.USA_NAIP_LIST:
+        padding = 20
+        naip_data, naip_crs, naip_transform, naip_bounds, naip_index = DataLoader.get_usa_data_by_extent(extent, padding=padding, geo_data_type=DataLoader.GeoDataTypes.NAIP)
+    elif DATA_LAYERS[dataset]["data_layer_type"] == DataLayerTypes.CUSTOM:
+        if "padding" in DATA_LAYERS[dataset]:
+            padding = DATA_LAYERS[dataset]["padding"]
+        else:
+            padding = 20
+        naip_data, naip_crs, naip_transform, naip_bounds, naip_index = DataLoader.get_custom_data_by_extent(extent, padding=padding, data_fn=DATA_LAYERS[dataset]["data_fn"])
+
+    naip_data = np.rollaxis(naip_data, 0, 3) # we do this here instead of get_data_by_extent because not all GeoDataTypes will have a channel dimension
     AugmentationState.current_transform = (naip_crs, naip_transform, naip_index, padding)
 
     # ------------------------------------------------------
@@ -228,7 +289,7 @@ def pred_patch():
     #   Apply reweighting
     #   Fix padding
     # ------------------------------------------------------
-    output = AugmentationState.model.run(naip_data, naip_file_name, extent, padding)
+    output = AugmentationState.model.run(naip_data, extent, False)
     assert len(output.shape) == 3, "The model function should return an image shaped as (height, width, num_classes)"
     assert (output.shape[2] < output.shape[0] and output.shape[2] < output.shape[1]), "The model function should return an image shaped as (height, width, num_classes)" # assume that num channels is less than img dimensions
 
@@ -236,12 +297,8 @@ def pred_patch():
     # Step 4
     #   Warp output to EPSG:3857 and crop off the padded area
     # ------------------------------------------------------
-    np.save("output_orig.npy",output)
     output, output_bounds = DataLoader.warp_data_to_3857(output, naip_crs, naip_transform, naip_bounds)
-    np.save("output_warped.npy",output)
     output = DataLoader.crop_data_by_extent(output, output_bounds, extent)
-
-
 
     # ------------------------------------------------------
     # Step 5
@@ -264,33 +321,34 @@ def pred_patch():
 def pred_tile():
     ''' Method called for POST `/predPatch`'''
     bottle.response.content_type = 'application/json'
+    data = bottle.request.json
+    data["time"] = time.ctime()
+    AugmentationState.request_list.append(data) # record this interaction
 
     # Inputs
-    data = bottle.request.json
     extent = data["extent"]
     color_list = data["colors"]
+    dataset = data["dataset"]
    
-    try:
-        naip_file_name = DataLoader.lookup_tile_by_geom(extent)
-    except ValueError as e:
-        print(e)
+
+    if dataset not in DATA_LAYERS:
+        raise ValueError("Dataset doesn't seem to be valid, do the datasets in js/tile_layers.js correspond to those in TileLayers.py")
+
+    if DATA_LAYERS[dataset]["data_layer_type"] == DataLayerTypes.ESRI_WORLD_IMAGERY:
         bottle.response.status = 400
-        return json.dumps({"error": str(e)})
-
-    print("Loading tile: %s" % (naip_file_name))
-    f = rasterio.open(naip_file_name, "r")
-    src_crs = f.crs
-    src_transform = f.transform
-    src_height, src_width = f.shape
-    src_bounds = f.bounds
-    src_profile = f.profile.copy()
-    naip_data = f.read()
-    f.close()
-
-    print("Running on tile")
+        return json.dumps({"error": "Cannot currently download with ESRI World Imagery"})
+    elif DATA_LAYERS[dataset]["data_layer_type"] == DataLayerTypes.USA_NAIP_LIST:
+        naip_data, raster_profile, raster_transform = DataLoader.download_usa_data_by_extent(extent, geo_data_type=DataLoader.GeoDataTypes.NAIP)
+    elif DATA_LAYERS[dataset]["data_layer_type"] == DataLayerTypes.CUSTOM:
+        dl = DATA_LAYERS[dataset]
+        naip_data, raster_profile, raster_transform = DataLoader.download_custom_data_by_extent(extent, shapes=dl["shapes"], shapes_crs=dl["shapes_crs"], data_fn=dl["data_fn"])
     naip_data = np.rollaxis(naip_data, 0, 3)
-    output = AugmentationState.model.run(naip_data, naip_file_name, extent, 0)
+
+
+    output = AugmentationState.model.run(naip_data, extent, True)
     print("Finished, output dimensions:", output.shape)
+
+    # apply nodata mask from naip_data
 
     # ------------------------------------------------------
     # Step 4
@@ -299,17 +357,22 @@ def pred_tile():
     tmp_id = get_random_string(8)
     img_hard = np.round(Utils.class_prediction_to_img(output, True, color_list)*255,0).astype(np.uint8)
     img_hard = cv2.cvtColor(img_hard, cv2.COLOR_RGB2BGR)
-    cv2.imwrite(os.path.join(ROOT_DIR, "tmp/%s.png" % (tmp_id)), img_hard)
-    data["downloadPNG"] = "tmp/%s.png" % (tmp_id)
+    cv2.imwrite(os.path.join(ROOT_DIR, "downloads/%s.png" % (tmp_id)), img_hard)
+    data["downloadPNG"] = "downloads/%s.png" % (tmp_id)
 
-    new_profile = src_profile.copy()
+    new_profile = raster_profile.copy()
     new_profile['driver'] = 'GTiff'
     new_profile['dtype'] = 'uint8'
+    new_profile['compress'] = "lzw"
     new_profile['count'] = 1
-    f = rasterio.open(os.path.join(ROOT_DIR, "tmp/%s.tif" % (tmp_id)), 'w', **new_profile)
+    new_profile['transform'] = raster_transform
+    new_profile['height'] = naip_data.shape[0] 
+    new_profile['width'] = naip_data.shape[1]
+    new_profile['nodata'] = 255
+    f = rasterio.open(os.path.join(ROOT_DIR, "downloads/%s.tif" % (tmp_id)), 'w', **new_profile)
     f.write(output.argmax(axis=2).astype(np.uint8), 1)
     f.close()
-    data["downloadTIFF"] = "tmp/%s.tif" % (tmp_id)
+    data["downloadTIFF"] = "downloads/%s.tif" % (tmp_id)
 
 
     bottle.response.status = 200
@@ -320,30 +383,40 @@ def get_input():
     ''' Method called for POST `/getInput`
     '''
     bottle.response.content_type = 'application/json'
+    data = bottle.request.json
+    data["time"] = time.ctime()
+    AugmentationState.request_list.append(data) # record this interaction
 
     # Inputs
-    data = bottle.request.json
     extent = data["extent"]
+    dataset = data["dataset"]
 
     # ------------------------------------------------------
     # Step 1
     #   Transform the input extent into a shapely geometry
     #   Find the tile assosciated with the geometry
     # ------------------------------------------------------
-    try:
-        naip_file_name = DataLoader.lookup_tile_by_geom(extent)
-    except ValueError as e:
-        print(e)
-        bottle.response.status = 400
-        return json.dumps({"error": str(e)})
-
     # ------------------------------------------------------
     # Step 2
     #   Load the input data sources for the given tile  
     # ------------------------------------------------------
-    padding = 20
-    naip_data, naip_crs, naip_transform, naip_bounds, naip_index = DataLoader.get_data_by_extent(naip_file_name, extent, DataLoader.GeoDataTypes.NAIP, padding=padding)
+    if dataset not in DATA_LAYERS:
+        raise ValueError("Dataset doesn't seem to be valid, do the datasets in js/tile_layers.js correspond to those in TileLayers.py")
+
+    if DATA_LAYERS[dataset]["data_layer_type"] == DataLayerTypes.ESRI_WORLD_IMAGERY:
+        padding = 0.0005
+        naip_data, naip_crs, naip_transform, naip_bounds, naip_index = DataLoader.get_esri_data_by_extent(extent, padding=padding)
+    elif DATA_LAYERS[dataset]["data_layer_type"] == DataLayerTypes.USA_NAIP_LIST:
+        padding = 20
+        naip_data, naip_crs, naip_transform, naip_bounds, naip_index = DataLoader.get_usa_data_by_extent(extent, padding=padding, geo_data_type=DataLoader.GeoDataTypes.NAIP)
+    elif DATA_LAYERS[dataset]["data_layer_type"] == DataLayerTypes.CUSTOM:
+        if "padding" in DATA_LAYERS[dataset]:
+            padding = DATA_LAYERS[dataset]["padding"]
+        else:
+            padding = 20
+        naip_data, naip_crs, naip_transform, naip_bounds, naip_index = DataLoader.get_custom_data_by_extent(extent, padding=padding, data_fn=DATA_LAYERS[dataset]["data_fn"])
     naip_data = np.rollaxis(naip_data, 0, 3)
+    
 
     naip_data, new_bounds = DataLoader.warp_data_to_3857(naip_data, naip_crs, naip_transform, naip_bounds)
     naip_data = DataLoader.crop_data_by_extent(naip_data, new_bounds, extent)
@@ -378,6 +451,7 @@ def main():
             "iclr_keras",
             "iclr_cntk",
             "nips_sr",
+            "existing",
             "nips_hr",
             "group_norm",
         ],
@@ -393,7 +467,6 @@ def main():
         ],
         help="Model to use", required=True
     )
-
     parser.add_argument("--model_fn", action="store", dest="model_fn", type=str, help="Model fn to use", default=None)
     parser.add_argument("--gpu", action="store", dest="gpuid", type=int, help="GPU to use", default=0)
 
@@ -428,14 +501,18 @@ def main():
             model = ServerModelsNIPSGroupNorm.GroupParamsLastKLayersFineTune(args.model_fn, args.gpuid, last_k_layers=2)
         elif args.fine_tune == "group_params_then_last_k":
             model = ServerModelsNIPSGroupNorm.GroupParamsThenLastKLayersFineTune(args.model_fn, args.gpuid, last_k_layers=2)
-
+    elif args.model == "existing":
+        model = joblib.load(args.model_fn)
     else:
         print("Model isn't implemented, aborting")
         return
 
     AugmentationState.model = model
     AugmentationState.debug_mode = args.debug
-    AugmentationState.reset()
+    if args.model == "existing":
+        AugmentationState.reset(soft=True)
+    else:
+        AugmentationState.reset()
 
     # Setup the bottle server 
     app = bottle.Bottle()
@@ -459,7 +536,12 @@ def main():
     app.route("/resetModel", method="OPTIONS", callback=do_options)
     app.route('/resetModel', method="POST", callback=reset_model)
 
-    app.route('/', method="GET", callback=do_get)
+    app.route("/doUndo", method="OPTIONS", callback=do_options)
+    app.route("/doUndo", method="POST", callback=do_undo)
+
+    app.route("/heatmap/<z>/<y>/<x>", method="GET", callback=do_heatmap)
+
+    app.route("/", method="GET", callback=do_get)
 
     bottle_server_kwargs = {
         "host": args.host,
@@ -470,5 +552,5 @@ def main():
     }
     app.run(**bottle_server_kwargs)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

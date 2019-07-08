@@ -2,10 +2,16 @@
 // Retrain backend server
 //-----------------------------------------------------------------
 var doRetrain = function(){
+    var request = {
+        "type": "retrain",
+        "dataset": DATASET,
+        "experiment": EXP_NAME,
+        "retrainArgs": retrainArgs
+    };
     $.ajax({
         type: "POST",
         url: BACKEND_URL + "retrainModel",
-        data: JSON.stringify({"retrain": true, "experiment": EXP_NAME, "retrainArgs": retrainArgs}),
+        data: JSON.stringify(request),
         success: function(data, textStatus, jqXHR){
             if(data["success"]){
                 notifySuccess(data, textStatus, jqXHR, 5000);
@@ -14,7 +20,7 @@ var doRetrain = function(){
                 $("#label-retrains").html(retrainCounts);
                 for( k in labelCounts){
                     labelCounts[k] = 0;
-                    $("#label-"+k).html("0");
+                    $("#label-counts-"+k).html("0");
                 }
 
                 var t = currentSelection._latlngs[0];
@@ -40,7 +46,8 @@ var doRetrain = function(){
 //-----------------------------------------------------------------
 var doReset = function(notify=true){
     var request = {
-        "reset": true,
+        "type": "reset",
+        "dataset": DATASET,
         "experiment": EXP_NAME
     };
     $.ajax({
@@ -55,7 +62,7 @@ var doReset = function(notify=true){
 
                 for( k in labelCounts){
                     labelCounts[k] = 0;
-                    $("#label-"+k).html("0");
+                    $("#label-counts-"+k).html("0");
                 }
             }
         },
@@ -85,6 +92,9 @@ var doDownloadTile = function(){
     var bottomrightProjected = L.CRS.EPSG3857.project(bottomright);
 
     var request = {
+        "type": "download",
+        "dataset": DATASET,
+        "experiment": EXP_NAME,
         "extent": {
             "xmax": bottomrightProjected.x,
             "xmin": topleftProjected.x,
@@ -142,6 +152,9 @@ var doSendCorrection = function(polygon, idx){
     var bottomrightProjected = L.CRS.EPSG3857.project(bottomright);
     
     var request = {
+        "type": "correction",
+        "dataset": DATASET,
+        "experiment": EXP_NAME,
         "extent": {
             "xmax": bottomrightProjected.x,
             "xmin": topleftProjected.x,
@@ -152,8 +165,7 @@ var doSendCorrection = function(polygon, idx){
             }
         },
         "colors": colorList,
-        "value" : selectedClassIdx,
-        "experiment": EXP_NAME
+        "value" : selectedClassIdx
     };
 
 
@@ -166,32 +178,76 @@ var doSendCorrection = function(polygon, idx){
             console.debug(data);
 
             labelName = findClassByIdx(data["value"])
+            console.debug(labelName)
             //labelCounts[data["value"]] += data["count"];
             labelCounts[labelName] += 1;
 
-            $("#label-"+labelName).html(labelCounts[labelName]);
+            $("#label-counts-"+labelName).html(labelCounts[labelName]);
             animateSuccessfulCorrection(10, 80);
-            //notifySuccess(data, textStatus, jqXHR);
-            
-            /*
-            var srcs = [
-                "data:image/png;base64," + data.output_soft,
-                "data:image/png;base64," + data.output_hard,
-            ];
-
-            var tActiveImgIdx = currentPatches[idx]["activeImgIdx"];
-            currentPatches[idx]["patches"][tActiveImgIdx]["srcs"] = srcs;
-            $("#exampleImage_"+tActiveImgIdx).attr("src", srcs[soft0_hard1]);
-            
-            if(pred0_naip1 == 0){
-                currentPatches[idx]["imageLayer"].setUrl(srcs[soft0_hard1]);
-            }
-            */
         },
         error: notifyFail,
         dataType: "json",
         contentType: "application/json"
     });
+};
+
+//-----------------------------------------------------------------
+// Submit an undo request
+//-----------------------------------------------------------------
+var doUndo = function(){
+
+    var request = {
+        "type": "undo",
+        "dataset": DATASET,
+        "experiment": EXP_NAME,
+    };
+
+    if(!undoInProgress){
+        $.ajax({
+            type: "POST",
+            url: BACKEND_URL + "doUndo",
+            data: JSON.stringify(request),
+            success: function(data, textStatus, jqXHR){
+                
+                // remove previously added point
+                console.debug(data);
+
+                for(var i=0;i<data["count"];i++){
+                    var removedPoint = userPointList.pop();
+                    map.removeLayer(removedPoint[0]);
+                    var labelName = findClassByIdx(removedPoint[1]);
+
+                    labelCounts[labelName] -= 1;
+                    $("#label-counts-"+labelName).html(labelCounts[labelName]);
+                }
+
+                // 
+
+                // alert success
+                new Noty({
+                    type: "success",
+                    text: "Successful undo! Rewound " + data["count"] + " samples",
+                    layout: 'topCenter',
+                    timeout: 1000,
+                    theme: 'metroui'
+                }).show();
+            }, 
+            error: notifyFail,
+            always: function(){
+                undoInProgress = false;
+            },
+            dataType: "json",
+            contentType: "application/json"
+        });
+    }else{
+        new Noty({
+            type: "error",
+            text: "Please wait until current undo request finishes",
+            layout: 'topCenter',
+            timeout: 1000,
+            theme: 'metroui'
+        }).show();
+    }
 };
 
 
@@ -209,15 +265,21 @@ var requestPatches = function(polygon){
     });
     var idx = currentPatches.length-1;
     
-    // Request input image from the first server we know about
-    requestInputPatch(idx, polygon, ENDPOINTS[0]["url"]);
-    for(var i=0; i<ENDPOINTS.length; i++){
-        //console.debug("Running requestPatch on " + ENDPOINTS[i]["url"]);
-        currentPatches[idx]["patches"].push({
-            "srcs": null
-        });
-        requestPatch(idx, polygon, i, BACKEND_URL); //TODO: this should be changed if we want to have a web tool that queries different backends
-    }
+    requestInputPatch(idx, polygon, BACKEND_URL);
+
+    currentPatches[idx]["patches"].push({
+        "srcs": null
+    });
+    requestPatch(idx, polygon, 0, BACKEND_URL);
+
+    // The following code is for connecting to multiple backends at once
+    // for(var i=0; i<ENDPOINTS.length; i++){
+    //     //console.debug("Running requestPatch on " + ENDPOINTS[i]["url"]);
+    //     currentPatches[idx]["patches"].push({
+    //         "srcs": null
+    //     });
+    //     requestPatch(idx, polygon, i, BACKEND_URL); //TODO: this should be changed if we want to have a web tool that queries different backends
+    // }
 };
 
 var requestPatch = function(idx, polygon, currentImgIdx, serviceURL){
@@ -227,6 +289,9 @@ var requestPatch = function(idx, polygon, currentImgIdx, serviceURL){
     var bottomrightProjected = L.CRS.EPSG3857.project(bottomright);
 
     var request = {
+        "type": "runInference",
+        "dataset": DATASET,
+        "experiment": EXP_NAME,
         "extent": {
             "xmax": bottomrightProjected.x,
             "xmin": topleftProjected.x,
@@ -283,6 +348,9 @@ var requestInputPatch = function(idx, polygon, serviceURL){
     var bottomrightProjected = L.CRS.EPSG3857.project(bottomright);
 
     var request = {
+        "type": "getInput",
+        "dataset": DATASET,
+        "experiment": EXP_NAME,
         "extent": {
             "xmax": bottomrightProjected.x,
             "xmin": topleftProjected.x,
@@ -302,7 +370,7 @@ var requestInputPatch = function(idx, polygon, serviceURL){
             var resp = data;
             var naipImg = "data:image/png;base64," + resp.input_naip;
             currentPatches[idx]["naipImg"] = naipImg 
-            $("#inputNAIP").attr("src", naipImg);
+            $("#inputImage").attr("src", naipImg);
 
             if(pred0_naip1 == 1){
                 //var imageLayer = L.imageOverlay(naipImg, L.polygon(polygon).getBounds()).addTo(map);
