@@ -1,3 +1,3 @@
-./mount_remotes_development.sh
+setup/mount_remotes_all.sh
 
-source login.sh
+source setup/login.sh
