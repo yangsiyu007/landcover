@@ -65,7 +65,7 @@
                             </div>
                             <div class="radio">
                                 <button class="circle" data-class-name="field" style="background-color: #80FF80;"></button>
-                                <label><input type="radio" name="new-class" class="radNewClass" value="field">Field (<span id="label-counts-field">0</span> samples since last retrain)</label>
+                                <label><input type="radio" name="new-class" class="radNewClass" value="field">Low Vegetation (<span id="label-counts-field">0</span> samples since last retrain)</label>
                             </div>
                             <div class="radio">
                                 <button class="circle" data-class-name="built" style="background-color: #806060;"></button>
@@ -226,21 +226,9 @@
             //----------------------------------------------------------------------
             // Setup map layers
             //----------------------------------------------------------------------
-            heatmap = L.tileLayer(BACKEND_URL + 'heatmap/{z}/{y}/{x}?{randint}', {
-                attribution: 'Georeferenced Image', 
-                tms:true,
-                transparent:true,
-                maxZoom: 20,
-                maxNativeZoom: 17,
-                opacity: 0.6,
-                randint: generateRandInt
-            });
-
 
             if((DATASET != "esri_world_imagery") && (DATASET != "esri_world_imagery_naip")){
-                interestingLocations = [
-                    L.marker(tileLayers[DATASET]["location"][0]).bindPopup(tileLayers[DATASET]["location"][2])
-                ];
+                interestingLocations = [];
             }
             var baseLayer = tileLayers[DATASET]["tileObject"];
             START_CENTER = tileLayers[DATASET]["location"][0];
@@ -332,27 +320,6 @@
                 }
             );
             opacitySlider.addTo(map);
-            
-            //----------------------------------------------------------------------
-            // Setup the selection window size slider
-            //----------------------------------------------------------------------
-            windowSizeSlider = L.control.slider( // opacity slider
-                function(value){
-                   SELECTION_SIZE = value;
-                }, {
-                    position: 'bottomleft',
-                    id: 'window_size_slider',
-                    orientation: 'horizontal',
-                    collapsed: true,
-                    syncSlider: true,
-                    min: 300,
-                    max: 700,
-                    value: 300,
-                    logo: "Window Size",
-                    size: "171px"
-                }
-            );
-            windowSizeSlider.addTo(map);
 
             //----------------------------------------------------------------------
             // Setup the sharpness slider to control which type of image is shown
@@ -557,42 +524,6 @@
             $("#btnUndo").click(doUndo);
             $("#btnReset").click(doReset);
             $("#btnDownload").click(doDownloadTile);
-            $("#btnNewClass").click(function(){
-                
-                var newClassIdx = classList.length + 1;
-                var newColor = getRandomColor();
-
-                
-                var newClassElement =  $("<div class='radio'>");
-                //var newPicker = $("<button class=\"circle jscolor\" data-class-name=\"class-"+newClassIdx+"\" data-jscolor=\"{valueElement:null,value:'"+newColor.substring(1)+"',position:'left',zIndex:2001,closable:true,closeText:'Close',onFineChange:'updateClassColor(this)'}\"></button>");
-                var newLabel = $("<label><input type='radio' name='new-class' class='radNewClass' value='class-"+newClassIdx+"'><span id='label-name-class-"+newClassIdx+"' class='label-name'>Class "+newClassIdx+"</span> (<span id='label-counts-class-"+newClassIdx+"'>0</span> samples since last retrain)<i class='fa fa-edit ml-1 label-name-edit'></i></label>");
-
-
-                var newPicker = document.createElement('button');
-                newPicker.classList.add("circle");
-                newPicker.setAttribute("data-class-name", "class-"+newClassIdx);
-                var output = new jscolor(newPicker, {
-                    valueElement: null,
-                    value: newColor.substr(1),
-                    position:'left',
-                    zIndex:2001,
-                    closable:true,
-                    closeText:'Close',
-                    onFineChange:'updateClassColor(this)'
-                });
-
-                newClassElement.append(newPicker);
-                newClassElement.append(newLabel);        
-            
-                $("#classList").append(newClassElement);
-
-                classList.push({
-                    "name": "class-" + newClassIdx
-                });
-                colorList.push(newColor)
-                labelCounts["class-" + newClassIdx] = 0;
-
-            });
 
             //----------------------------------------------------------------------
             // Setup radio button change detection
