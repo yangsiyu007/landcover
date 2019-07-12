@@ -79,16 +79,6 @@
                         <div style="text-align: center; margin-top:10px;">
                             <button id="btnUndo">Undo</button>
                         </div>
-                        <!-- <div style="text-align: center; margin-top:10px;">
-                            <button id="btnReset">Reset</button>
-                        </div>
-                        <div style="text-align: center; margin-top:10px;">
-                            <button id="btnDownload">Download</button>
-                        </div>
-                        <div style="text-align: center; margin-top:5px;">
-                            <div id="lblPNG"></div>
-                            <div id="lblTIFF"></div>
-                        </div> -->
                     </div>
                 </div>
             </div>
@@ -236,7 +226,18 @@
             //----------------------------------------------------------------------
             // Setup map layers
             //----------------------------------------------------------------------
-            if(DATASET != "esri_world_imagery"){
+            heatmap = L.tileLayer(BACKEND_URL + 'heatmap/{z}/{y}/{x}?{randint}', {
+                attribution: 'Georeferenced Image', 
+                tms:true,
+                transparent:true,
+                maxZoom: 20,
+                maxNativeZoom: 17,
+                opacity: 0.6,
+                randint: generateRandInt
+            });
+
+
+            if((DATASET != "esri_world_imagery") && (DATASET != "esri_world_imagery_naip")){
                 interestingLocations = [
                     L.marker(tileLayers[DATASET]["location"][0]).bindPopup(tileLayers[DATASET]["location"][2])
                 ];
@@ -292,16 +293,15 @@
             // Setup AI4E Branding
             //----------------------------------------------------------------------
             var logoControl = $("<div class='leaflet-control logo-area'></div>");
-            logoControl.append("<span class='logo-text'>Microsoft AI for Earth</span>");
-            logoControl.append("<br/>");
-            logoControl.append("<span class='logo-text-small'>Version: 0.7</span>");
+            logoControl.append("<span class='logo-text'>Land cover mapping</span>");
             
             $(".leaflet-top.leaflet-left").append(logoControl)
 
-            // Add div for displaying lat/lon
-            var timerControl = $("<div class='leaflet-control label-area'></div>");
-            timerControl.append("<div class='label-text'>Time remaining <span id='timer'>00:00</span></div>");
-            $(".leaflet-top.leaflet-left").append(timerControl);
+            if(args.maxTime !== null){
+                var timerControl = $("<div class='leaflet-control label-area'></div>");
+                timerControl.append("<div class='label-text'>Time remaining <span id='timer'>00:00</span></div>");
+                $(".leaflet-top.leaflet-left").append(timerControl);
+            }
             
             //----------------------------------------------------------------------
             // Custom initialization of the map zoom controls so that we can 
@@ -310,17 +310,6 @@
             L.control.zoom({
                 position:'topleft'
             }).addTo(map);
-
-            //----------------------------------------------------------------------
-            // Setup the leaflet-easybutton plugin to reset the map to its initial
-            // position
-            //----------------------------------------------------------------------
-            L.easyButton(
-                'fa-undo', function(btn, map) {
-                    map.closePopup();
-                    map.setView(START_CENTER, START_ZOOM);
-                },
-            ).addTo(map);
 
             //----------------------------------------------------------------------
             // Setup leaflet-slider plugin
@@ -343,7 +332,7 @@
                 }
             );
             opacitySlider.addTo(map);
-
+            
             //----------------------------------------------------------------------
             // Setup the selection window size slider
             //----------------------------------------------------------------------
@@ -509,54 +498,57 @@
             });
 
             $(document).keydown(function(e) {
-                if(e.which == 97 || e.which == 65) { // "a"
-                    visible = false;
-                    map.getPane('labels').style.opacity = 0.0;
-                    opacitySlider.slider.value = 0;
-                    opacitySlider._updateValue();
-                } else if(e.which == 115 || e.which == 83) { // "s"
-                    if(visible){
+                if(document.activeElement == document.body){
+                    if(e.which == 97 || e.which == 65) { // "a"
                         visible = false;
                         map.getPane('labels').style.opacity = 0.0;
                         opacitySlider.slider.value = 0;
                         opacitySlider._updateValue();
-                    }else{
+                    } else if(e.which == 115 || e.which == 83) { // "s"
+                        if(visible){
+                            visible = false;
+                            map.getPane('labels').style.opacity = 0.0;
+                            opacitySlider.slider.value = 0;
+                            opacitySlider._updateValue();
+                        }else{
+                            visible = true;
+                            map.getPane('labels').style.opacity = 1.0;
+                            opacitySlider.slider.value = 100;
+                            opacitySlider._updateValue();
+                        }
+                    } else if(e.which == 100 || e.which == 68) { "d"
                         visible = true;
                         map.getPane('labels').style.opacity = 1.0;
-                        opacitySlider.slider.value = 100;
+                        opacitySlider.slider.value = 100
                         opacitySlider._updateValue();
-                    }
-                } else if(e.which == 100 || e.which == 68) { "d"
-                    visible = true;
-                    map.getPane('labels').style.opacity = 1.0;
-                    opacitySlider.slider.value = 100
-                    opacitySlider._updateValue();
-                } else if((e.which == 114 || e.which == 82) && !ctrlKeyDown){ "r"
-                    doRetrain();
-                } else if(e.which == 37){ "left arrow"
-                    var currentOpacity = parseFloat(map.getPane('labels').style.opacity);
-                    if (currentOpacity >= 0.05){
-                        currentOpacity -= 0.05;
+                    } else if((e.which == 114 || e.which == 82) && !ctrlKeyDown){ "r"
+                        doRetrain();
+                    } else if(e.which == 37){ "left arrow"
+                        var currentOpacity = parseFloat(map.getPane('labels').style.opacity);
+                        if (currentOpacity >= 0.05){
+                            currentOpacity -= 0.05;
 
-                        map.getPane('labels').style.opacity = currentOpacity;
-                        opacitySlider.slider.value = currentOpacity*100;
-                        opacitySlider._updateValue();
-                    }
-                    e.preventDefault()
-                } else if(e.which == 39){ "right arrow"
-                    var currentOpacity = parseFloat(map.getPane('labels').style.opacity);
-                    if (currentOpacity <= 0.95){
-                        currentOpacity += 0.05;
+                            map.getPane('labels').style.opacity = currentOpacity;
+                            opacitySlider.slider.value = currentOpacity*100;
+                            opacitySlider._updateValue();
+                        }
+                        e.preventDefault()
+                    } else if(e.which == 39){ "right arrow"
+                        var currentOpacity = parseFloat(map.getPane('labels').style.opacity);
+                        if (currentOpacity <= 0.95){
+                            currentOpacity += 0.05;
 
-                        map.getPane('labels').style.opacity = currentOpacity;
-                        opacitySlider.slider.value = currentOpacity*100;
-                        opacitySlider._updateValue();
+                            map.getPane('labels').style.opacity = currentOpacity;
+                            opacitySlider.slider.value = currentOpacity*100;
+                            opacitySlider._updateValue();
+                        }
+                        e.preventDefault()
+                    } else if(e.which == 38 || e.which == 40){
+                        e.preventDefault()
+                    } else if(ctrlKeyDown && e.which==90){
+                        doUndo();
                     }
-                    e.preventDefault()
-                } else if(e.which == 38 || e.which == 40){
-                    e.preventDefault()
-                } else if(ctrlKeyDown && e.which==90){
-                    doUndo();
+                    return false;
                 }
             });
 

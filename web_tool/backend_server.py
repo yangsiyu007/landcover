@@ -73,12 +73,10 @@ class Heatmap():
 
 
 class AugmentationState():
-    BASE_DIR = "/mnt/blobfuse/pred-output/user_study/user_study_version_2_local/"
+    BASE_DIR = "/mnt/blobfuse/user-study-output/user_study_version_2_local/"
     debug_mode = False
     current_snapshot_idx = 0
     model = None
-
-    created_dir = False
 
     current_transform = ()
     current_naip = None
@@ -93,21 +91,13 @@ class AugmentationState():
     
         AugmentationState.current_snapshot_idx = 0
         AugmentationState.request_list = []
-        AugmentationState.created_dir = False
 
     @staticmethod
     def save(model_name):
         print("Saving state for %s snapshot %d" % (model_name, AugmentationState.current_snapshot_idx))
         
         dir_name = os.path.join(AugmentationState.BASE_DIR, model_name)
-        
-        if not AugmentationState.created_dir:
-
-            AugmentationState.created_dir = True
-            if not os.path.exists(dir_name):
-                os.makedirs(dir_name, exist_ok=False)
-            else:
-                print("Experiment already exists, overwriting!")
+        os.makedirs(dir_name, exist_ok=True)
              
         model_fn = os.path.join(dir_name, "%s_%s_model.p" % (model_name, AugmentationState.current_snapshot_idx))
         request_list_fn = os.path.join(dir_name, "%s_%s_requests.p" % (model_name, AugmentationState.current_snapshot_idx))
