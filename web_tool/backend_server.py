@@ -97,7 +97,7 @@ class AugmentationState():
         print("Saving state for %s snapshot %d" % (model_name, AugmentationState.current_snapshot_idx))
         
         dir_name = os.path.join(AugmentationState.BASE_DIR, model_name)
-        os.makedirs(dir_name, exist_ok=False)
+        os.makedirs(dir_name, exist_ok=True)
              
         model_fn = os.path.join(dir_name, "%s_%s_model.p" % (model_name, AugmentationState.current_snapshot_idx))
         request_list_fn = os.path.join(dir_name, "%s_%s_requests.p" % (model_name, AugmentationState.current_snapshot_idx))
