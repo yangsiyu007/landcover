@@ -7,6 +7,7 @@ import os
 import time
 import datetime
 import collections
+import pdb
 
 from gevent import monkey; monkey.patch_all()
 import bottle
@@ -37,8 +38,8 @@ import DataLoader
 from Heatmap import Heatmap
 from TileLayers import DataLayerTypes, DATA_LAYERS
 from Utils import get_random_string, class_prediction_to_img, get_shape_layer_by_name, AtomicCounter
+import ServerModelsICLRFormat, ServerModelsCachedFormat, ServerModelsICLRDynamicFormat, ServerModelsNIPS, ServerModelsNIPSGroupNorm, ServerModelsOverlapClustering
 
-import ServerModelsNIPS
 
 from web_tool import ROOT_DIR
 
@@ -558,6 +559,7 @@ def main():
             "existing",
             "nips_hr",
             "group_norm",
+            "overlap_clustering",
         ],
         help="Model to use", required=True
     )
@@ -605,6 +607,8 @@ def main():
             model = ServerModelsNIPSGroupNorm.GroupParamsLastKLayersFineTune(args.model_fn, args.gpuid, last_k_layers=2)
         elif args.fine_tune == "group_params_then_last_k":
             model = ServerModelsNIPSGroupNorm.GroupParamsThenLastKLayersFineTune(args.model_fn, args.gpuid, last_k_layers=2)
+    elif args.model == "overlap_clustering":
+        model = ServerModelsOverlapClustering.OverlapClustering()
     elif args.model == "existing":
         model = joblib.load(args.model_fn)
     else:
@@ -680,3 +684,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
