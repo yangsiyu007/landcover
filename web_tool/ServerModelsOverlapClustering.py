@@ -143,27 +143,15 @@ class OverlapClustering(BackendModel):
         self.correction_labels[tdst_row:bdst_row+1, tdst_col:bdst_col+1, class_idx+1] = 1.0
 
     def process_correction_labels(self):
+        '''Store labels from previous patch that have not yet been trained with.
+        Initialize a new, empty set of correction labels.'''
 
+        # TODO: actually implement this for overlap clustering.
+        
         height = self.naip_data.shape[0]
         width = self.naip_data.shape[1]
 
-        batch_x = []
-        batch_y = []
-        batch_count = 0
-        num_skips = 0
-        for y_index in (list(range(0, height - self.input_size, self.stride_y)) + [height - self.input_size,]):
-            for x_index in (list(range(0, width - self.input_size, self.stride_x)) + [width - self.input_size,]):
-                naip_im = self.naip_data[y_index:y_index+self.input_size, x_index:x_index+self.input_size, :].copy()
-                correction_labels_slice = self.correction_labels[y_index:y_index+self.input_size, x_index:x_index+self.input_size, :].copy()
-
-                if not np.all(correction_labels_slice == 0):
-                    batch_x.append(naip_im)
-                    batch_y.append(correction_labels_slice)
-                    self.correction_labels[y_index:y_index+self.input_size, x_index:x_index+self.input_size, :] = 0
-                else:
-                    num_skips += 1
-        self.batch_x.extend(batch_x)
-        self.batch_y.extend(batch_y)
+        self.correction_labels = None
 
     def undo(self):
         return False, "Not implemented yet"
