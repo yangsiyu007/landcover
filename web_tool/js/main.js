@@ -409,7 +409,6 @@ var requestInputPatch = function(idx, polygon, serviceURL){
 };
 
 
-
 //-----------------------------------------------------------------
 // Load a saved model state from the backend
 //-----------------------------------------------------------------

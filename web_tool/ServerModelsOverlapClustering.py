@@ -9,6 +9,7 @@ from keras import optimizers
 import torch
 from einops import rearrange
 import time
+import pdb
 
 from ServerModelsAbstract import BackendModel
 
@@ -36,7 +37,9 @@ class OverlapClustering(BackendModel):
         feature_layer_idx = None
         
         self.naip_data = None
+        
         self.correction_labels = None
+        self.correction_locations = None
 
         self.down_weight_padding = 40
 
@@ -51,6 +54,8 @@ class OverlapClustering(BackendModel):
         ''' Expects naip_data to have shape (height, width, channels) and have values in the [0, 255] range.
         '''
         # If we click somewhere else before retraining we need to commit the current set of training samples
+        pdb.set_trace()
+
         if self.correction_labels is not None and not on_tile:
             self.process_correction_labels()
 
@@ -66,9 +71,12 @@ class OverlapClustering(BackendModel):
         
         return output
 
+    # Currently not used.
     def run_model_on_batch(self, batch_data, batch_size=32, predict_central_pixel_only=False):
         ''' Expects batch_data to have shape (none, 240, 240, 4) and have values in the [0, 255] range.
         '''
+        print('in run_model_on_batch')
+        
         output = output / 255.0
         output = self.model.predict(batch_data, batch_size=batch_size, verbose=0)
         output = output[:,:,:,1:]
@@ -82,76 +90,26 @@ class OverlapClustering(BackendModel):
         # Commit any training samples we have received to the training set
         self.process_correction_labels()
 
-        # Reset the model to the initial state
-        num_layers = len(self.model.layers)
-        for i in range(num_layers):
-            if self.model.layers[i].trainable:
-                self.model.layers[i].set_weights(self.old_model.layers[i].get_weights())
-            self.model.layers[i].trainable = False
-
-        for i in range(num_layers-last_k_layers, num_layers):
-            self.model.layers[i].trainable = True
-        self.model.compile(optimizers.Adam(lr=learning_rate, amsgrad=True), "categorical_crossentropy")
-
-        if len(self.batch_x) > 0:
-
-            x_train = np.array(self.batch_x)
-            y_train = np.array(self.batch_y)
-            y_train_labels = y_train.argmax(axis=3)
-
-            # Perform retraining
-            history = []
-            for i in range(number_of_steps):
-                idxs = np.arange(x_train.shape[0])
-                np.random.shuffle(idxs)
-                x_train = x_train[idxs]
-                y_train = y_train[idxs]
-                
-                training_losses = []
-                for j in range(0, x_train.shape[0], batch_size):
-                    batch_x = x_train[j:j+batch_size]
-                    batch_y = y_train[j:j+batch_size]
-
-                    actual_batch_size = batch_x.shape[0]
-
-                    training_loss = self.model.train_on_batch(batch_x, batch_y)
-                    training_losses.append(training_loss)
-                history.append(np.mean(training_losses))
-            beginning_loss = history[0]
-            end_loss = history[-1]
-            
-            # Evaluate training accuracy - surrogate for how well we are able to fit our supplemental training set
-            y_pred = self.model.predict(x_train)        
-            y_pred_labels = y_pred.argmax(axis=3)
-            mask = y_train_labels != 0
-            acc = np.sum(y_train_labels[mask] == y_pred_labels[mask]) / np.sum(mask)
-            
-            # The front end expects some return message
-            success = True
-            message = "Re-trained model with %d samples<br>Starting loss:%f<br>Ending loss:%f<br>Training acc: %f." % (
-                x_train.shape[0],
-                beginning_loss, end_loss,
-                acc
-            )
-        else:
-            success = False
-            message = "Need to add labels before you can retrain"
-
+        distances, indices = morphology.distance_transform_edt(self.correction_locations, return_indices=True, return_distances=True)
+        
         return success, message
 
     def add_sample(self, tdst_row, bdst_row, tdst_col, bdst_col, class_idx):        
-        self.correction_labels[tdst_row:bdst_row+1, tdst_col:bdst_col+1, class_idx+1] = 1.0
+        self.correction_labels[tdst_row:bdst_row+1, tdst_col:bdst_col+1, class_idx] = 1.0
 
     def process_correction_labels(self):
-        '''Store labels from previous patch that have not yet been trained with.
-        Initialize a new, empty set of correction labels.'''
+        '''Store labels from current patch.
+        '''
 
         # TODO: actually implement this for overlap clustering.
+        # Right now, just throwing these corrections away.
         
         height = self.naip_data.shape[0]
         width = self.naip_data.shape[1]
 
-        self.correction_labels = None
+        self.correction_locations = self.correction_labels.sum(axis=-1)
+        # 1 in each location with a label, 0 elsewhere
+
 
     def undo(self):
         return False, "Not implemented yet"
@@ -167,6 +125,7 @@ class OverlapClustering(BackendModel):
     def run_model_on_tile(self, naip_tile, batch_size=32):
         ''' Expects naip_tile to have shape (height, width, channels) and have values in the [0, 1] range.
         '''
+        print('in run_model_on_tile')
         height = naip_tile.shape[0]
         width = naip_tile.shape[1]
         img_for_clustering = rearrange(naip_tile, 'h w c -> c h w')

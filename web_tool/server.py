@@ -303,6 +303,8 @@ def pred_patch():
     data = bottle.request.json
     Session.add_entry(data) # record this interaction
 
+    print('in backend_server.pred_patch')
+    
     # Inputs
     extent = data["extent"]
     dataset = data["dataset"]
@@ -381,6 +383,8 @@ def pred_tile():
     data = bottle.request.json
     Session.add_entry(data) # record this interaction
 
+    print('in backend_server.pred_tile')
+    
     # Inputs
     extent = data["extent"]
     class_list = data["classes"]
