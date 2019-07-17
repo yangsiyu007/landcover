@@ -10,6 +10,7 @@ import torch
 from einops import rearrange
 import time
 import pdb
+from scipy.ndimage import morphology
 
 from ServerModelsAbstract import BackendModel
 
@@ -37,16 +38,18 @@ class OverlapClustering(BackendModel):
         feature_layer_idx = None
         
         self.naip_data = None
+        self.previous_extent = None
         
         self.correction_labels = None
         self.correction_locations = None
+        self.cluster_assignments = None
 
         self.down_weight_padding = 40
 
         self.batch_x = []
         self.batch_y = []
         self.num_corrected_pixels = 0
-
+        
         self.num_output_channels = 4
         self.device = torch.device('cuda:0')
         
@@ -62,12 +65,14 @@ class OverlapClustering(BackendModel):
         naip_data = naip_data / 255.0
         height = naip_data.shape[0]
         width = naip_data.shape[1]
-        output = self.run_model_on_tile(naip_data)
-
-        # Reset the state of our retraining mechanism
-        if not on_tile:
-            self.correction_labels = np.zeros((height, width, self.num_output_channels), dtype=np.float32)
-            self.naip_data = naip_data.copy()
+        if extent == self.previous_extent:
+            output = self.run_updated_model_on_tile(naip_data)
+        else:
+            output = self.run_model_on_tile(naip_data)
+            # Reset the state of our retraining mechanism
+            if not on_tile:
+                self.correction_labels = np.zeros((height, width, self.num_output_channels), dtype=np.float32)
+                self.naip_data = naip_data.copy()
         
         return output
 
@@ -90,7 +95,6 @@ class OverlapClustering(BackendModel):
         # Commit any training samples we have received to the training set
         self.process_correction_labels()
 
-        distances, indices = morphology.distance_transform_edt(self.correction_locations, return_indices=True, return_distances=True)
         
         return success, message
 
@@ -132,7 +136,8 @@ class OverlapClustering(BackendModel):
         
         p, mean, var, prior = self.run_clustering(img_for_clustering, n_classes=8, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200)
         # p: (clusters, height, width)
-
+        self.cluster_assignments = p
+        
         label_img = np.array([
             p[0, :, :] + p[1, :, :],
             p[2, :, :] + p[3, :, :],
@@ -143,6 +148,38 @@ class OverlapClustering(BackendModel):
         output = rearrange(label_img, 'c h w -> h w c')
 
         return output
+
+    def run_updated_model_on_tile(self, naip_tile, batch_size=32):
+        ''' Expects naip_tile to have shape (height, width, channels) and have values in the [0, 1] range.
+        '''
+        print('in run_model_on_tile')
+        height = naip_tile.shape[0]
+        width = naip_tile.shape[1]
+        
+        soft_assignments = self.cluster_assignments
+        # (height width cluster_ids)
+        num_clusters = self.cluster_assignments.shape[-1]
+        
+        hard_assignments = soft_assignments.argmax(axis=-1)
+        # (height width)
+
+        cluster_lookups = []
+        
+        for i in range(num_clusters):
+            cluster_locations = (hard_assignments == i) * 1  # 1 everywhere it is cluster i, 0 elsewhere
+            corrections_in_cluster = self.correction_locations * cluster_locations
+
+            distances, closest_label_indices = morphology.distance_transform_edt(corrections_in_cluster, return_indices=True, return_distances=True)
+
+            cluster_lookups.append(closest_label_indices)
+        
+        self.correction_locations
+        # (height width)
+        
+        self.correction_labels
+        
+        return output
+
     
     ########### Overlap Clustering Code ##############
 
