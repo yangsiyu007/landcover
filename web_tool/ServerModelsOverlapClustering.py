@@ -11,6 +11,7 @@ from einops import rearrange
 import time
 import pdb
 from scipy.ndimage import morphology
+import traceback
 
 from ServerModelsAbstract import BackendModel
 
@@ -57,8 +58,6 @@ class OverlapClustering(BackendModel):
         ''' Expects naip_data to have shape (height, width, channels) and have values in the [0, 255] range.
         '''
         # If we click somewhere else before retraining we need to commit the current set of training samples
-        pdb.set_trace()
-
         if self.correction_labels is not None and not on_tile:
             self.process_correction_labels()
 
@@ -66,9 +65,14 @@ class OverlapClustering(BackendModel):
         height = naip_data.shape[0]
         width = naip_data.shape[1]
         if extent == self.previous_extent:
+            #try:
             output = self.run_updated_model_on_tile(naip_data)
+            #except:
+            #    traceback.print_stack()
+            #    pdb.set_trace()
         else:
             output = self.run_model_on_tile(naip_data)
+            self.previous_extent = extent
             # Reset the state of our retraining mechanism
             if not on_tile:
                 self.correction_labels = np.zeros((height, width, self.num_output_channels), dtype=np.float32)
@@ -94,7 +98,8 @@ class OverlapClustering(BackendModel):
     def retrain(self, number_of_steps=5, last_k_layers=3, learning_rate=0.01, batch_size=32, **kwargs):
         # Commit any training samples we have received to the training set
         self.process_correction_labels()
-
+        success = True
+        message = 'Corrections received.'
         
         return success, message
 
@@ -152,33 +157,38 @@ class OverlapClustering(BackendModel):
     def run_updated_model_on_tile(self, naip_tile, batch_size=32):
         ''' Expects naip_tile to have shape (height, width, channels) and have values in the [0, 1] range.
         '''
-        print('in run_model_on_tile')
+        print('in run_updated_model_on_tile')
         height = naip_tile.shape[0]
         width = naip_tile.shape[1]
         
         soft_assignments = self.cluster_assignments
-        # (height width cluster_ids)
-        num_clusters = self.cluster_assignments.shape[-1]
+        # (cluster_ids height width)
+        num_clusters = self.cluster_assignments.shape[0]
         
-        hard_assignments = soft_assignments.argmax(axis=-1)
+        hard_assignments = soft_assignments.argmax(axis=0)
         # (height width)
 
+        correction_labels = self.correction_labels.argmax(axis=-1)
+        
         cluster_lookups = []
         
         for i in range(num_clusters):
             cluster_locations = (hard_assignments == i) * 1  # 1 everywhere it is cluster i, 0 elsewhere
             corrections_in_cluster = self.correction_locations * cluster_locations
-
+            corrections_in_cluster = 1 - corrections_in_cluster # invert for distance_transform_edt function
+            # self.correction_locations: (height width)
             distances, closest_label_indices = morphology.distance_transform_edt(corrections_in_cluster, return_indices=True, return_distances=True)
-
             cluster_lookups.append(closest_label_indices)
-        
-        self.correction_locations
-        # (height width)
-        
-        self.correction_labels
-        
-        return output
+                
+        output_one_hot = np.zeros((height, width, 4))
+        for y in range(height):
+            for x in range(width):
+                cluster_id = hard_assignments[y, x]
+                nearest_label_idx = cluster_lookups[cluster_id][:, y, x]
+                predicted_label = correction_labels[tuple(nearest_label_idx)]
+                output_one_hot[y, x, predicted_label] = 1.0
+                
+        return output_one_hot
 
     
     ########### Overlap Clustering Code ##############
