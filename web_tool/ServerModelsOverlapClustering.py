@@ -15,7 +15,7 @@ import traceback
 
 from ServerModelsAbstract import BackendModel
 
-from web_tool.frontend_server import ROOT_DIR
+from server import ROOT_DIR
 
 AUGMENT_MODEL = MLPClassifier(
     hidden_layer_sizes=(),
