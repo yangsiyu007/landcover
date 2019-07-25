@@ -38,7 +38,7 @@ import DataLoader
 from Heatmap import Heatmap
 from TileLayers import DataLayerTypes, DATA_LAYERS
 from Utils import get_random_string, class_prediction_to_img, get_shape_layer_by_name, AtomicCounter
-import ServerModelsICLRFormat, ServerModelsCachedFormat, ServerModelsICLRDynamicFormat, ServerModelsNIPS, ServerModelsNIPSGroupNorm, ServerModelsOverlapClustering
+import ServerModelsICLRFormat, ServerModelsCachedFormat, ServerModelsICLRDynamicFormat, ServerModelsNIPS, ServerModelsNIPSGroupNorm, ServerModelsOverlapClustering, ServerModelsOverlapClusteringVoting
 
 
 from web_tool import ROOT_DIR
@@ -612,7 +612,9 @@ def main():
         elif args.fine_tune == "group_params_then_last_k":
             model = ServerModelsNIPSGroupNorm.GroupParamsThenLastKLayersFineTune(args.model_fn, args.gpuid, last_k_layers=2)
     elif args.model == "overlap_clustering":
-        model = ServerModelsOverlapClustering.OverlapClustering()
+        model = ServerModelsOverlapClustering.OverlapClustering(args.model_fn, args.gpuid, superres=False)
+    elif args.model == "overlap_clustering_voting":
+        model = ServerModelsOverlapClustering.OverlapClusteringVoting()
     elif args.model == "existing":
         model = joblib.load(args.model_fn)
     else:
