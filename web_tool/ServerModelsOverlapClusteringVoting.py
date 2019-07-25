@@ -12,6 +12,7 @@ import time
 import pdb
 from scipy.ndimage import morphology
 import traceback
+from einops import rearrange
 
 from ServerModelsAbstract import BackendModel
 from web_tool.ServerModelsOverlapClustering import OverlapClustering
@@ -40,10 +41,66 @@ class OverlapClusteringVoting(BackendModel):
     def run(self, naip_data, extent, on_tile=False):
         ''' Expects naip_data to have shape (height, width, channels) and have values in the [0, 255] range.
         '''
-        output_clustering = self.clustering_server_model.run(naip_data, extent, on_tile=on_tile)
-        output_neural_net = self.fine_tuning_server_model.run(naip_data, extent, on_tile=on_tile)
+        # output_clustering_soft = self.clustering_server_model.run(naip_data, extent, on_tile=on_tile, collapse_clusters=False)
+        # (h w c)
 
-        return output_neural_net
+        # use for clusters-only view:
+        #output_clustering_soft = self.clustering_server_model.run(naip_data, extent, on_tile=on_tile, collapse_clusters=True)
+        #return output_clustering_soft
+
+        # NN only view:
+        output_neural_net_soft = self.fine_tuning_server_model.run(naip_data, extent, on_tile=on_tile)
+        # (h w c)
+        return output_neural_net_soft
+
+        # Actual algorithm
+        # pdb.set_trace()
+        
+        height_cluster, width_cluster, num_clusters = output_clustering_soft.shape
+        height_nn, width_nn, num_labels = output_neural_net_soft.shape
+
+        assert height_cluster == height_nn
+        assert width_cluster == width_nn
+
+        output_clustering_hard = output_clustering_soft.argmax(axis=-1)
+        # (h w)
+
+        output = np.zeros((height_cluster, width_cluster, num_labels))
+        
+        for i in range(num_clusters):
+            cluster_mask = (output_clustering_hard == i) * 1.0
+            # (h w)
+            cluster_mask_labels = np.repeat(rearrange(cluster_mask, 'h w -> h w ()'), 4, axis=-1)
+            # (h w num_labels)
+            
+            masked_neural_net_soft = output_neural_net_soft * cluster_mask_labels
+            # (h w c) w/ 0s
+            neural_net_votes = masked_neural_net_soft.sum(axis=0).sum(axis=0)
+            # (num_labels)
+            neural_net_votes = rearrange(neural_net_votes, 'l -> l () ()')
+            # (num_labels 1 1)
+            
+            # assert sum(neural_net_votes) == np.count_nonzero(cluster_mask)
+            # (Pdb) np.count_nonzero(cluster_mask)
+            # 3504
+            # (Pdb) sum(neural_net_votes)
+            # 3503.8304080405505
+            # Not quite equal... concern here?
+            
+            cluster_decisions = np.repeat(
+                rearrange(cluster_mask, 'h w -> () h w'),
+                num_labels,
+                axis=0
+            )
+            # (c h w)
+            
+            cluster_decisions *= neural_net_votes
+            # (num_labels h w)
+            cluster_decisions = rearrange(cluster_decisions, 'l h w -> h w l')
+            
+            output += cluster_decisions
+        
+        return output
     
         
     def retrain(self, **kwargs):

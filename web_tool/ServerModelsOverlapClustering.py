@@ -54,7 +54,7 @@ class OverlapClustering(BackendModel):
         self.num_output_channels = 4
         self.device = torch.device('cuda:0')
         
-    def run(self, naip_data, extent, on_tile=False):
+    def run(self, naip_data, extent, on_tile=False, collapse_clusters=True):
         ''' Expects naip_data to have shape (height, width, channels) and have values in the [0, 255] range.
         '''
         # If we click somewhere else before retraining we need to commit the current set of training samples
@@ -71,7 +71,7 @@ class OverlapClustering(BackendModel):
             #    traceback.print_stack()
             #    pdb.set_trace()
         else:
-            output = self.run_model_on_tile(naip_data)
+            output = self.run_model_on_tile(naip_data, collapse_clusters=collapse_clusters)
             self.previous_extent = extent
             # Reset the state of our retraining mechanism
             if not on_tile:
@@ -131,7 +131,7 @@ class OverlapClustering(BackendModel):
         self.naip_data = None
         self.correction_labels = None
         
-    def run_model_on_tile(self, naip_tile, batch_size=32):
+    def run_model_on_tile(self, naip_tile, batch_size=32, collapse_clusters=True):
         ''' Expects naip_tile to have shape (height, width, channels) and have values in the [0, 1] range.
         '''
         print('in run_model_on_tile')
@@ -142,13 +142,16 @@ class OverlapClustering(BackendModel):
         p, mean, var, prior = self.run_clustering(img_for_clustering, n_classes=8, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200)
         # p: (clusters, height, width)
         self.cluster_assignments = p
-        
-        label_img = np.array([
-            p[0, :, :] + p[1, :, :],
-            p[2, :, :] + p[3, :, :],
-            p[4, :, :] + p[5, :, :],
-            p[6, :, :] + p[7, :, :]
-        ])
+
+        if collapse_clusters:
+            label_img = np.array([
+                p[0, :, :] + p[1, :, :],
+                p[2, :, :] + p[3, :, :],
+                p[4, :, :] + p[5, :, :],
+                p[6, :, :] + p[7, :, :]
+            ])
+        else:
+            label_img = p
         
         output = rearrange(label_img, 'c h w -> h w c')
 
