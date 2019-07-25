@@ -564,6 +564,7 @@ def main():
             "nips_hr",
             "group_norm",
             "overlap_clustering",
+            "overlap_clustering_voting",
         ],
         help="Model to use", required=True
     )
@@ -614,7 +615,7 @@ def main():
     elif args.model == "overlap_clustering":
         model = ServerModelsOverlapClustering.OverlapClustering(args.model_fn, args.gpuid, superres=False)
     elif args.model == "overlap_clustering_voting":
-        model = ServerModelsOverlapClustering.OverlapClusteringVoting()
+        model = ServerModelsOverlapClusteringVoting.OverlapClusteringVoting(args.model_fn, args.gpuid, superres=False)
     elif args.model == "existing":
         model = joblib.load(args.model_fn)
     else:

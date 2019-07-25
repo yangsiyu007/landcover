@@ -14,10 +14,10 @@ from scipy.ndimage import morphology
 import traceback
 
 from ServerModelsAbstract import BackendModel
-from ServerModelsOverlapClustering import OverlapClustering
+from web_tool.ServerModelsOverlapClustering import OverlapClustering
 from ServerModelsNIPS import KerasDenseFineTune
 
-from server import ROOT_DIR
+from web_tool import ROOT_DIR
 
 AUGMENT_MODEL = MLPClassifier(
     hidden_layer_sizes=(),
@@ -40,10 +40,11 @@ class OverlapClusteringVoting(BackendModel):
     def run(self, naip_data, extent, on_tile=False):
         ''' Expects naip_data to have shape (height, width, channels) and have values in the [0, 255] range.
         '''
-        self.clustering_server_model.run(naip_data, extent, on_tile=on_tile)
-        self.fine_tuning_server_model.run(naip_data, extent, on_tile=on_tile)
+        output_clustering = self.clustering_server_model.run(naip_data, extent, on_tile=on_tile)
+        output_neural_net = self.fine_tuning_server_model.run(naip_data, extent, on_tile=on_tile)
 
-        
+        return output_neural_net
+    
         
     def retrain(self, **kwargs):
         # Commit any training samples we have received to the training set
