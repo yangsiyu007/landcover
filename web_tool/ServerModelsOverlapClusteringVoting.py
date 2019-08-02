@@ -41,9 +41,6 @@ class OverlapClusteringVoting(BackendModel):
     def run(self, naip_data, extent, on_tile=False):
         ''' Expects naip_data to have shape (height, width, channels) and have values in the [0, 255] range.
         '''
-        # output_clustering_soft = self.clustering_server_model.run(naip_data, extent, on_tile=on_tile, collapse_clusters=False)
-        # (h w c)
-
         # use for clusters-only view:
         #output_clustering_soft = self.clustering_server_model.run(naip_data, extent, on_tile=on_tile, collapse_clusters=True)
         #return output_clustering_soft
@@ -51,9 +48,13 @@ class OverlapClusteringVoting(BackendModel):
         # NN only view:
         output_neural_net_soft = self.fine_tuning_server_model.run(naip_data, extent, on_tile=on_tile)
         # (h w c)
-        return output_neural_net_soft
+        # return output_neural_net_soft
 
         # Actual algorithm
+
+        output_clustering_soft = self.clustering_server_model.run(naip_data, extent, on_tile=on_tile, collapse_clusters=False)
+        # (h w c)
+
         # pdb.set_trace()
         
         height_cluster, width_cluster, num_clusters = output_clustering_soft.shape
