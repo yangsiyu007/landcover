@@ -12,7 +12,6 @@ import time
 import pdb
 from scipy.ndimage import morphology
 import traceback
-from einops import rearrange
 
 from ServerModelsAbstract import BackendModel
 from web_tool.ServerModelsOverlapClustering import OverlapClustering
@@ -47,13 +46,13 @@ class OverlapClusteringVoting(BackendModel):
 
         # NN only view:
         output_neural_net_soft = self.fine_tuning_server_model.run(naip_data, extent, on_tile=on_tile)
-        # (h w c)
+        # (height width label)
         # return output_neural_net_soft
 
         # Actual algorithm
 
         output_clustering_soft = self.clustering_server_model.run(naip_data, extent, on_tile=on_tile, collapse_clusters=False)
-        # (h w c)
+        # (height width cluster)
 
         # pdb.set_trace()
         
@@ -67,8 +66,23 @@ class OverlapClusteringVoting(BackendModel):
         # (h w)
 
         output = np.zeros((height_cluster, width_cluster, num_labels))
+
+
+        normalization = np.einsum('hwc->c', output_clustering_soft)  # normalization[c] = sum_{h,w} output_clustering_soft[h, w, c]
+        # (num_clusters,)
+        normalization = rearrange(normalization, 'c -> () c')
+        # (1, num_clusters)
+        prob_label_given_cluster = np.einsum('hwc,hwl->lc', output_clustering_soft, output_neural_net_soft)  # prob_label_given_cluster[l, c] = (sum_{h,w}{output_clustering_soft[h, w, c] * output_neural_net_soft[h, w, l]}) / normalization
+        # (num_labels, num_clusters)
+        prob_label_given_cluster /= normalization
+        # (num_labels, num_clusters)
+
+        prob_label_given_point = np.einsum('lc,hwc->hwl', prob_label_given_cluster, output_clustering_soft)
+        # (height, width, num_labels)
+
+        output = prob_label_given_point
         
-        for i in range(num_clusters):
+        '''for i in range(num_clusters):
             cluster_mask = (output_clustering_hard == i) * 1.0
             # (h w)
             cluster_mask_labels = np.repeat(rearrange(cluster_mask, 'h w -> h w ()'), 4, axis=-1)
@@ -99,7 +113,7 @@ class OverlapClusteringVoting(BackendModel):
             # (num_labels h w)
             cluster_decisions = rearrange(cluster_decisions, 'l h w -> h w l')
             
-            output += cluster_decisions
+            output += cluster_decisions'''
         
         return output
     
