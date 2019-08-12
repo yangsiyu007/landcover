@@ -1,6 +1,7 @@
 import sys, os, time, copy
 
 import numpy as np
+import random
 
 import sklearn.base
 from sklearn.neural_network import MLPClassifier
@@ -16,6 +17,7 @@ import traceback
 from ServerModelsAbstract import BackendModel
 
 from web_tool import ROOT_DIR
+from training.pytorch.utils import save_visualize
 
 AUGMENT_MODEL = MLPClassifier(
     hidden_layer_sizes=(),
@@ -242,10 +244,40 @@ class OverlapClustering(BackendModel):
         data = torch.tensor(image).to(self.device)
         p = torch.rand((n_classes,) + image.shape[1:], dtype=torch.double).to(self.device)
         p /= p.sum(0)
+
+        color_map = {
+            i: [
+                random.randint(0, 255),
+                random.randint(0, 255),
+                random.randint(0, 255)
+            ]
+            for i in range(n_classes)
+        }
         
+        outputs = []
         for i in range(n_iter):
             p, mean, var, prior = self.em(data, p, warmup_radius if i<warmup_steps else radius, stride)# stride if i<n_iter-1 else 1)
+            p_ = p.cpu().numpy()
             
+            # output_clusters_hard = p_.argmax(axis=0)
+            # output_clusters_img = save_visualize.classes_to_rgb(output_clusters_hard, color_map)
+            outputs.append(p_)
+            
+        base_path = '/mnt/blobfuse/pred-output/overlap-clustering'
+        previous_saves = [int(subdir) for subdir in os.listdir(base_path)]
+        if len(previous_saves) > 0:
+            last_save = max(previous_saves)
+        else:
+            last_save = 0
+        path = '%s/%d' % (base_path, last_save + 1)
+
+        inputs = torch.tensor([image])
+        outputs = torch.tensor(outputs)
+        
+        # save_visualize.save_batch(outputs, path, 'output_clustering')
+        # save_visualize.save_batch(inputs_visualize, path, 'input_clustering')
+        save_visualize.save_visualize(inputs, outputs, None, path)
+        
         p_ = p.cpu().numpy()
         mean_ = mean.cpu().numpy()
         var_ = var.cpu().numpy()

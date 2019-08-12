@@ -25,7 +25,7 @@ CLASS_TO_COLOR = {
 def save_visualize(inputs, outputs, ground_truth, path):
     batch_size, channels_output, height_output, width_output = outputs.shape
     batch_size, channels_input,  height_input,  width_input  = inputs.shape
-    batch_size,                  height_output, width_output = ground_truth.shape
+    # batch_size,                  height_output, width_output = ground_truth.shape
 
     output_classes = outputs.argmax(dim=1)
     # (batch_size, height_output, width_output)
@@ -35,13 +35,15 @@ def save_visualize(inputs, outputs, ground_truth, path):
     
     cropped_inputs = crop_to_smallest_dimensions(sanitized_inputs, outputs, (2, 3))
     outputs_color = classes_to_rgb(output_classes, CLASS_TO_COLOR)
-    ground_truth_color = classes_to_rgb(ground_truth, CLASS_TO_COLOR)
+    if ground_truth:
+        ground_truth_color = classes_to_rgb(ground_truth, CLASS_TO_COLOR)
 
     # save cropped_inputs, outputs, ground_truth
     save_batch(sanitized_inputs, path, 'input')
     save_batch(cropped_inputs, path, 'cropped_input')
     save_batch(outputs_color, path, 'predictions')
-    save_batch(ground_truth_color, path, 'ground_truth')
+    if ground_truth:
+        save_batch(ground_truth_color, path, 'ground_truth')
     
 
 def save_batch(batch, path, file_name_prefix):
