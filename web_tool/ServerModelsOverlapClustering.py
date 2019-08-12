@@ -141,7 +141,7 @@ class OverlapClustering(BackendModel):
         width = naip_tile.shape[1]
         img_for_clustering = rearrange(naip_tile, 'h w c -> c h w')
         
-        p, mean, var, prior = self.run_clustering(img_for_clustering, n_classes=8, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200)
+        p, mean, var, prior = self.run_clustering(img_for_clustering, n_classes=8, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200, radius_steps=([200]*5 + [100]*5 + [50]*5 + [25]*5 + [12]*5 + [6]*5 + [3]*5 + [1]*5))
         # p: (clusters, height, width)
         self.cluster_assignments = p
 
@@ -238,18 +238,18 @@ class OverlapClustering(BackendModel):
         p_new = self.prob_gaussian(data, prior, mean, var, radius, stride)
         return p_new, mean, var, prior
 
-    def run_clustering(self, image, n_classes, radius, n_iter, stride, warmup_steps, warmup_radius):
+    def run_clustering(self, image, n_classes, radius, n_iter, stride, warmup_steps, warmup_radius, radius_steps):
         t = time.time()
         
         data = torch.tensor(image).to(self.device)
         p = torch.rand((n_classes,) + image.shape[1:], dtype=torch.double).to(self.device)
         p /= p.sum(0)
 
-        
+        n_iter = len(radius_steps)
         
         outputs = []
         for i in range(n_iter):
-            p, mean, var, prior = self.em(data, p, warmup_radius if i<warmup_steps else radius, stride)# stride if i<n_iter-1 else 1)
+            p, mean, var, prior = self.em(data, p, radius_steps[i], stride)# stride if i<n_iter-1 else 1)
             p_ = p.cpu().numpy()
             
             # output_clusters_hard = p_.argmax(axis=0)
