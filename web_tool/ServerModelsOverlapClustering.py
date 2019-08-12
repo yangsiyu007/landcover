@@ -245,14 +245,7 @@ class OverlapClustering(BackendModel):
         p = torch.rand((n_classes,) + image.shape[1:], dtype=torch.double).to(self.device)
         p /= p.sum(0)
 
-        color_map = {
-            i: [
-                random.randint(0, 255),
-                random.randint(0, 255),
-                random.randint(0, 255)
-            ]
-            for i in range(n_classes)
-        }
+        
         
         outputs = []
         for i in range(n_iter):
@@ -276,7 +269,7 @@ class OverlapClustering(BackendModel):
         
         # save_visualize.save_batch(outputs, path, 'output_clustering')
         # save_visualize.save_batch(inputs_visualize, path, 'input_clustering')
-        save_visualize.save_visualize(inputs, outputs, None, path)
+        save_visualize.save_visualize(inputs, outputs, None, path, rand_colors=True)
         
         p_ = p.cpu().numpy()
         mean_ = mean.cpu().numpy()

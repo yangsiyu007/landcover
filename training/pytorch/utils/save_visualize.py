@@ -4,6 +4,7 @@ import torch
 import einops
 from PIL import Image
 from pathlib import Path
+import random
 
 import pdb
 
@@ -22,7 +23,7 @@ CLASS_TO_COLOR = {
 }
 
 
-def save_visualize(inputs, outputs, ground_truth, path):
+def save_visualize(inputs, outputs, ground_truth, path, rand_colors=False):
     batch_size, channels_output, height_output, width_output = outputs.shape
     batch_size, channels_input,  height_input,  width_input  = inputs.shape
     # batch_size,                  height_output, width_output = ground_truth.shape
@@ -32,11 +33,23 @@ def save_visualize(inputs, outputs, ground_truth, path):
     # ground_truth has same shape as outputs
 
     sanitized_inputs = inputs_to_rgb(inputs)
+
+    if rand_colors:
+        color_map = {
+            i: [
+                random.randint(0, 255),
+                random.randint(0, 255),
+                random.randint(0, 255)
+            ]
+            for i in range(channels_output)
+        }
+    else:
+        color_map = CLASS_TO_COLOR
     
     cropped_inputs = crop_to_smallest_dimensions(sanitized_inputs, outputs, (2, 3))
-    outputs_color = classes_to_rgb(output_classes, CLASS_TO_COLOR)
+    outputs_color = classes_to_rgb(output_classes, color_map)
     if ground_truth:
-        ground_truth_color = classes_to_rgb(ground_truth, CLASS_TO_COLOR)
+        ground_truth_color = classes_to_rgb(ground_truth, color_map)
 
     # save cropped_inputs, outputs, ground_truth
     save_batch(sanitized_inputs, path, 'input')
