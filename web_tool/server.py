@@ -348,33 +348,38 @@ def pred_patch():
     #   Apply reweighting
     #   Fix padding
     # ------------------------------------------------------
-    output = Session.model.run(naip_data, extent, False)
-    assert len(output.shape) == 3, "The model function should return an image shaped as (height, width, num_classes)"
-    assert (output.shape[2] < output.shape[0] and output.shape[2] < output.shape[1]), "The model function should return an image shaped as (height, width, num_classes)" # assume that num channels is less than img dimensions
 
-    # ------------------------------------------------------
-    # Step 4
-    #   Warp output to EPSG:3857 and crop off the padded area
-    # ------------------------------------------------------
-    output, output_bounds = DataLoader.warp_data_to_3857(output, naip_crs, naip_transform, naip_bounds)
-    output = DataLoader.crop_data_by_extent(output, output_bounds, extent)
+    # Put this in when ready to send a stream of outputs to the client
+    # outputs = Session.model.run(naip_data, extent, False)
+    outputs = [Session.model.run(naip_data, extent, False)]
+    
+    for output in outputs:
+        assert len(output.shape) == 3, "The model function should return an image shaped as (height, width, num_classes)"
+        assert (output.shape[2] < output.shape[0] and output.shape[2] < output.shape[1]), "The model function should return an image shaped as (height, width, num_classes)" # assume that num channels is less than img dimensions
 
-    # ------------------------------------------------------
-    # Step 5
-    #   Convert images to base64 and return  
-    # ------------------------------------------------------
-    img_soft = np.round(class_prediction_to_img(output, False, color_list)*255,0).astype(np.uint8)
-    img_soft = cv2.imencode(".png", cv2.cvtColor(img_soft, cv2.COLOR_RGB2BGR))[1].tostring()
-    img_soft = base64.b64encode(img_soft).decode("utf-8")
-    data["output_soft"] = img_soft
+        # ------------------------------------------------------
+        # Step 4
+        #   Warp output to EPSG:3857 and crop off the padded area
+        # ------------------------------------------------------
+        output, output_bounds = DataLoader.warp_data_to_3857(output, naip_crs, naip_transform, naip_bounds)
+        output = DataLoader.crop_data_by_extent(output, output_bounds, extent)
+        
+        # ------------------------------------------------------
+        # Step 5
+        #   Convert images to base64 and return  
+        # ------------------------------------------------------
+        img_soft = np.round(class_prediction_to_img(output, False, color_list)*255,0).astype(np.uint8)
+        img_soft = cv2.imencode(".png", cv2.cvtColor(img_soft, cv2.COLOR_RGB2BGR))[1].tostring()
+        img_soft = base64.b64encode(img_soft).decode("utf-8")
+        data["output_soft"] = img_soft
 
-    img_hard = np.round(class_prediction_to_img(output, True, color_list)*255,0).astype(np.uint8)
-    img_hard = cv2.imencode(".png", cv2.cvtColor(img_hard, cv2.COLOR_RGB2BGR))[1].tostring()
-    img_hard = base64.b64encode(img_hard).decode("utf-8")
-    data["output_hard"] = img_hard
+        img_hard = np.round(class_prediction_to_img(output, True, color_list)*255,0).astype(np.uint8)
+        img_hard = cv2.imencode(".png", cv2.cvtColor(img_hard, cv2.COLOR_RGB2BGR))[1].tostring()
+        img_hard = base64.b64encode(img_hard).decode("utf-8")
+        data["output_hard"] = img_hard
 
-    bottle.response.status = 200
-    return json.dumps(data)
+        bottle.response.status = 200
+        return json.dumps(data)
 
 
 def pred_tile():

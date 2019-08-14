@@ -17,7 +17,9 @@ from ServerModelsAbstract import BackendModel
 from web_tool.ServerModelsOverlapClustering import OverlapClustering
 from ServerModelsNIPS import KerasDenseFineTune
 
+from training.pytorch.utils import save_visualize
 from web_tool import ROOT_DIR
+from web_tool.utils import represents_int
 
 AUGMENT_MODEL = MLPClassifier(
     hidden_layer_sizes=(),
@@ -51,37 +53,61 @@ class OverlapClusteringVoting(BackendModel):
 
         # Actual algorithm
 
-        output_clustering_soft = self.clustering_server_model.run(naip_data, extent, on_tile=on_tile, collapse_clusters=False)
+        output_clusterings_soft = self.clustering_server_model.run(naip_data, extent, on_tile=on_tile, collapse_clusters=False)
         # (height width cluster)
 
         # pdb.set_trace()
+
+        outputs = []
         
-        height_cluster, width_cluster, num_clusters = output_clustering_soft.shape
-        height_nn, width_nn, num_labels = output_neural_net_soft.shape
+        for output_clustering_soft in output_clusterings_soft:        
+            height_cluster, width_cluster, num_clusters = output_clustering_soft.shape
+            height_nn, width_nn, num_labels = output_neural_net_soft.shape
 
-        assert height_cluster == height_nn
-        assert width_cluster == width_nn
+            assert height_cluster == height_nn
+            assert width_cluster == width_nn
 
-        output_clustering_hard = output_clustering_soft.argmax(axis=-1)
-        # (h w)
+            output_clustering_hard = output_clustering_soft.argmax(axis=-1)
+            # (h w)
 
-        output = np.zeros((height_cluster, width_cluster, num_labels))
+            output = np.zeros((height_cluster, width_cluster, num_labels))
 
 
-        normalization = np.einsum('hwc->c', output_clustering_soft)  # normalization[c] = sum_{h,w} output_clustering_soft[h, w, c]
-        # (num_clusters,)
-        normalization = rearrange(normalization, 'c -> () c')
-        # (1, num_clusters)
-        prob_label_given_cluster = np.einsum('hwc,hwl->lc', output_clustering_soft, output_neural_net_soft)  # prob_label_given_cluster[l, c] = (sum_{h,w}{output_clustering_soft[h, w, c] * output_neural_net_soft[h, w, l]}) / normalization
-        # (num_labels, num_clusters)
-        prob_label_given_cluster /= normalization
-        # (num_labels, num_clusters)
+            normalization = np.einsum('hwc->c', output_clustering_soft)  # normalization[c] = sum_{h,w} output_clustering_soft[h, w, c]
+            # (num_clusters,)
+            normalization = rearrange(normalization, 'c -> () c')
+            # (1, num_clusters)
+            prob_label_given_cluster = np.einsum('hwc,hwl->lc', output_clustering_soft, output_neural_net_soft)  # prob_label_given_cluster[l, c] = (sum_{h,w}{output_clustering_soft[h, w, c] * output_neural_net_soft[h, w, l]}) / normalization
+            # (num_labels, num_clusters)
+            prob_label_given_cluster /= normalization
+            # (num_labels, num_clusters)
+            
+            prob_label_given_point = np.einsum('lc,hwc->hwl', prob_label_given_cluster, output_clustering_soft)
+            # (height, width, num_labels)
+            
+            output = prob_label_given_point
+            outputs.append(rearrange(output, 'h w l -> l h w'))
 
-        prob_label_given_point = np.einsum('lc,hwc->hwl', prob_label_given_cluster, output_clustering_soft)
-        # (height, width, num_labels)
+            # Put this in when ready to send a stream of outputs to the client
+            # yield output
 
-        output = prob_label_given_point
+
+        pdb.set_trace()
         
+        base_path = '/mnt/blobfuse/pred-output/overlap-clustering'
+        previous_saves = [int(subdir) for subdir in os.listdir(base_path) if represents_int(subdir)]
+        if len(previous_saves) > 0:
+            last_save = max(previous_saves)
+        else:
+            last_save = 0
+        path = '%s/%d-final-predictions' % (base_path, last_save)
+        
+        inputs = torch.tensor([rearrange(naip_data, 'h w c -> c h w')])
+        outputs = torch.tensor(outputs)
+        
+        save_visualize.save_visualize(inputs, outputs, None, path, rand_colors=False)
+
+            
         '''for i in range(num_clusters):
             cluster_mask = (output_clustering_hard == i) * 1.0
             # (h w)
@@ -114,6 +140,7 @@ class OverlapClusteringVoting(BackendModel):
             cluster_decisions = rearrange(cluster_decisions, 'l h w -> h w l')
             
             output += cluster_decisions'''
+
         
         return output
     

@@ -18,6 +18,8 @@ from ServerModelsAbstract import BackendModel
 
 from web_tool import ROOT_DIR
 from training.pytorch.utils import save_visualize
+from web_tool.utils import represents_int
+
 
 AUGMENT_MODEL = MLPClassifier(
     hidden_layer_sizes=(),
@@ -69,18 +71,19 @@ class OverlapClustering(BackendModel):
         if extent == self.previous_extent:
             #try:
             output = self.run_updated_model_on_tile(naip_data)
+            yield output
             #except:
             #    traceback.print_stack()
             #    pdb.set_trace()
         else:
-            output = self.run_model_on_tile(naip_data, collapse_clusters=collapse_clusters)
-            self.previous_extent = extent
-            # Reset the state of our retraining mechanism
-            if not on_tile:
-                self.correction_labels = np.zeros((height, width, self.num_output_channels), dtype=np.float32)
-                self.naip_data = naip_data.copy()
+            for output in self.run_model_on_tile(naip_data, collapse_clusters=collapse_clusters):
+                self.previous_extent = extent
+                # Reset the state of our retraining mechanism
+                if not on_tile:
+                    self.correction_labels = np.zeros((height, width, self.num_output_channels), dtype=np.float32)
+                    self.naip_data = naip_data.copy()
         
-        return output
+                yield output
 
     # Currently not used.
     def run_model_on_batch(self, batch_data, batch_size=32, predict_central_pixel_only=False):
@@ -141,23 +144,23 @@ class OverlapClustering(BackendModel):
         width = naip_tile.shape[1]
         img_for_clustering = rearrange(naip_tile, 'h w c -> c h w')
         
-        p, mean, var, prior = self.run_clustering(img_for_clustering, n_classes=8, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200, radius_steps=([200]*5 + [100]*20 + [50]*10 + [25]*10 + [12]*5)) # + [6]*5 + [3]*5 + [1]*5))
-        # p: (clusters, height, width)
-        self.cluster_assignments = p
-
-        if collapse_clusters:
-            label_img = np.array([
-                p[0, :, :] + p[1, :, :],
-                p[2, :, :] + p[3, :, :],
-                p[4, :, :] + p[5, :, :],
-                p[6, :, :] + p[7, :, :]
-            ])
-        else:
-            label_img = p
+        for (p, mean, var, prior) in self.run_clustering(img_for_clustering, n_classes=8, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200, radius_steps=([200]*2 + [100]*5 + [50]*5 + [25]*10 + [12]*5)):  # + [6]*5 + [3]*5 + [1]*5))
+            # p: (clusters, height, width)
+            self.cluster_assignments = p
+            
+            if collapse_clusters:
+                label_img = np.array([
+                    p[0, :, :] + p[1, :, :],
+                    p[2, :, :] + p[3, :, :],
+                    p[4, :, :] + p[5, :, :],
+                    p[6, :, :] + p[7, :, :]
+                ])
+            else:
+                label_img = p
         
-        output = rearrange(label_img, 'c h w -> h w c')
+            output = rearrange(label_img, 'c h w -> h w c')
 
-        return output
+            yield output
 
     def run_updated_model_on_tile(self, naip_tile, batch_size=32):
         ''' Expects naip_tile to have shape (height, width, channels) and have values in the [0, 1] range.
@@ -250,14 +253,19 @@ class OverlapClustering(BackendModel):
         outputs = []
         for i in range(n_iter):
             p, mean, var, prior = self.em(data, p, radius_steps[i], stride)# stride if i<n_iter-1 else 1)
+
             p_ = p.cpu().numpy()
+            mean_ = mean.cpu().numpy()
+            var_ = var.cpu().numpy()
+            prior_ = prior.cpu().numpy()
             
             # output_clusters_hard = p_.argmax(axis=0)
             # output_clusters_img = save_visualize.classes_to_rgb(output_clusters_hard, color_map)
             outputs.append(p_)
+            yield p_, mean_, var_, prior_
             
         base_path = '/mnt/blobfuse/pred-output/overlap-clustering'
-        previous_saves = [int(subdir) for subdir in os.listdir(base_path)]
+        previous_saves = [int(subdir) for subdir in os.listdir(base_path) if represents_int(subdir)]
         if len(previous_saves) > 0:
             last_save = max(previous_saves)
         else:
