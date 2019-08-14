@@ -105,8 +105,11 @@ class OverlapClusteringVoting(BackendModel):
         inputs = torch.tensor([rearrange(naip_data, 'h w c -> c h w')])
         outputs = torch.tensor(outputs)
         
-        save_visualize.save_visualize(inputs, outputs, None, path, rand_colors=False)
-
+        save_visualize.save_visualize(inputs,
+                                      torch.tensor(np.pad(outputs, ((0,0), (1,0), (0,0), (0,0)), mode='constant')), # add an extra entry for 0 class, with 0 probability assigned
+                                      rearrange(output_neural_net_soft.argmax(axis=-1) + 1, 'h w -> () h w'),
+                                      path, rand_colors=False)
+        # save_visualize.save_visualize(inputs, rearrange(output_neural_net_soft, 'h w c -> c h w'), None, path, rand_colors=False)
             
         '''for i in range(num_clusters):
             cluster_mask = (output_clustering_hard == i) * 1.0

@@ -144,7 +144,7 @@ class OverlapClustering(BackendModel):
         width = naip_tile.shape[1]
         img_for_clustering = rearrange(naip_tile, 'h w c -> c h w')
         
-        for (p, mean, var, prior) in self.run_clustering(img_for_clustering, n_classes=8, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200, radius_steps=([200]*2 + [100]*5 + [50]*5 + [25]*10 + [12]*5)):  # + [6]*5 + [3]*5 + [1]*5))
+        for (p, mean, var, prior) in self.run_clustering(img_for_clustering, n_classes=8, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200, radius_steps=([200]*2 + [50]*10 + [25]*10)):  # + [6]*5 + [3]*5 + [1]*5))
             # p: (clusters, height, width)
             self.cluster_assignments = p
             
