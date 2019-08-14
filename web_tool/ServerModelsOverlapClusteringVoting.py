@@ -74,21 +74,28 @@ class OverlapClusteringVoting(BackendModel):
 
             vote_radius = 25
             stride = 1
+            diameter = 2 * vote_radius + 1
             
             c = torch.tensor(rearrange(output_clustering_soft, 'h w c -> () c h w')) # , dtype=torch.float
             l = torch.tensor(rearrange(output_neural_net_soft, 'h w l -> () l h w')) # , dtype=torch.float
             
-            normalizations = torch.nn.functional.avg_pool2d(c, vote_radius, stride)
+            normalizations = torch.nn.functional.avg_pool2d(c, diameter, stride, padding=vote_radius, count_include_pad=False)
             # (1 c h w)            
             
             joint_labels_clusters = rearrange(
                 torch.nn.functional.avg_pool2d(
-                    rearrange(
+                    torch.tensor(rearrange(
                         np.einsum('...c,...l->...cl', output_clustering_soft, output_neural_net_soft),
-                        'h w c l -> () (c l) h w'),
-                    vote_radius,
-                    stride),
-                '() (c l) h w -> l c h w'
+                        'h w c l -> () (c l) h w')
+                    ),
+                    diameter,
+                    stride,
+                    padding=vote_radius,
+                    count_include_pad=False
+                ),
+                '() (c l) h w -> l c h w',
+                c=num_clusters,
+                l=num_labels
             )
 
             prob_label_given_cluster = joint_labels_clusters / normalizations
