@@ -72,17 +72,30 @@ class OverlapClusteringVoting(BackendModel):
 
             output = np.zeros((height_cluster, width_cluster, num_labels))
 
-
-            normalization = np.einsum('hwc->c', output_clustering_soft)  # normalization[c] = sum_{h,w} output_clustering_soft[h, w, c]
-            # (num_clusters,)
-            normalization = rearrange(normalization, 'c -> () c')
-            # (1, num_clusters)
-            prob_label_given_cluster = np.einsum('hwc,hwl->lc', output_clustering_soft, output_neural_net_soft)  # prob_label_given_cluster[l, c] = (sum_{h,w}{output_clustering_soft[h, w, c] * output_neural_net_soft[h, w, l]}) / normalization
-            # (num_labels, num_clusters)
-            prob_label_given_cluster /= normalization
-            # (num_labels, num_clusters)
+            vote_radius = 25
+            stride = 1
             
-            prob_label_given_point = np.einsum('lc,hwc->hwl', prob_label_given_cluster, output_clustering_soft)
+            c = torch.tensor(rearrange(output_clustering_soft, 'h w c -> () c h w')) # , dtype=torch.float
+            l = torch.tensor(rearrange(output_neural_net_soft, 'h w l -> () l h w')) # , dtype=torch.float
+            
+            normalizations = torch.nn.functional.avg_pool2d(c, vote_radius, stride)
+            # (1 c h w)            
+            
+            joint_labels_clusters = rearrange(
+                torch.nn.functional.avg_pool2d(
+                    rearrange(
+                        np.einsum('...c,...l->...cl', output_clustering_soft, output_neural_net_soft),
+                        'h w c l -> () (c l) h w'),
+                    vote_radius,
+                    stride),
+                '() (c l) h w -> l c h w'
+            )
+
+            prob_label_given_cluster = joint_labels_clusters / normalizations
+            # (l c h w) / (1 c h w) --> (l c h w)
+            
+            
+            prob_label_given_point = np.einsum('lchw,hwc->hwl', prob_label_given_cluster, output_clustering_soft)
             # (height, width, num_labels)
             
             output = prob_label_given_point
@@ -92,8 +105,6 @@ class OverlapClusteringVoting(BackendModel):
             # yield output
 
 
-        pdb.set_trace()
-        
         base_path = '/mnt/blobfuse/pred-output/overlap-clustering'
         previous_saves = [int(subdir) for subdir in os.listdir(base_path) if represents_int(subdir)]
         if len(previous_saves) > 0:
