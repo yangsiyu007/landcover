@@ -72,8 +72,8 @@ class OverlapClusteringVoting(BackendModel):
             output_clustering_one_hot = np.zeros((height_cluster, width_cluster, num_clusters))
             for i in range(output_clustering_argmax.shape[0]):
                 for j in range(output_clustering_argmax.shape[1]):
-                    cluster_id = output_clustering_argmax[i][j]
-                    output_clustering_one_hot[cluster_id] = 1.0
+                    cluster_id = output_clustering_argmax[i, j]
+                    output_clustering_one_hot[i, j, cluster_id] = 1.0
 
             output_clustering_one_hot += 0.000001
                     
