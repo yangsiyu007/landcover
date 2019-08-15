@@ -67,16 +67,23 @@ class OverlapClusteringVoting(BackendModel):
             assert height_cluster == height_nn
             assert width_cluster == width_nn
 
-            output_clustering_hard = output_clustering_soft.argmax(axis=-1)
+            output_clustering_argmax = output_clustering_soft.argmax(axis=-1)
             # (h w)
+            output_clustering_one_hot = np.zeros((height_cluster, width_cluster, num_clusters))
+            for i in range(output_clustering_argmax.shape[0]):
+                for j in range(output_clustering_argmax.shape[1]):
+                    cluster_id = output_clustering_argmax[i][j]
+                    output_clustering_one_hot[cluster_id] = 1.0
 
+            output_clustering_one_hot += 0.000001
+                    
             output = np.zeros((height_cluster, width_cluster, num_labels))
 
             vote_radius = 25
             stride = 1
             diameter = 2 * vote_radius + 1
             
-            c = torch.tensor(rearrange(output_clustering_soft, 'h w c -> () c h w')) # , dtype=torch.float
+            c = torch.tensor(rearrange(output_clustering_one_hot, 'h w c -> () c h w')) # , dtype=torch.float
             l = torch.tensor(rearrange(output_neural_net_soft, 'h w l -> () l h w')) # , dtype=torch.float
             
             normalizations = torch.nn.functional.avg_pool2d(c, diameter, stride, padding=vote_radius, count_include_pad=False)
@@ -85,7 +92,7 @@ class OverlapClusteringVoting(BackendModel):
             joint_labels_clusters = rearrange(
                 torch.nn.functional.avg_pool2d(
                     torch.tensor(rearrange(
-                        np.einsum('...c,...l->...cl', output_clustering_soft, output_neural_net_soft),
+                        np.einsum('...c,...l->...cl', output_clustering_one_hot, output_neural_net_soft),
                         'h w c l -> () (c l) h w')
                     ),
                     diameter,
@@ -102,7 +109,7 @@ class OverlapClusteringVoting(BackendModel):
             # (l c h w) / (1 c h w) --> (l c h w)
             
             
-            prob_label_given_point = np.einsum('lchw,hwc->hwl', prob_label_given_cluster, output_clustering_soft)
+            prob_label_given_point = np.einsum('lchw,hwc->hwl', prob_label_given_cluster, output_clustering_one_hot)
             # (height, width, num_labels)
             
             output = prob_label_given_point
