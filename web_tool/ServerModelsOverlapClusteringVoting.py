@@ -20,6 +20,8 @@ from ServerModelsNIPS import KerasDenseFineTune
 from training.pytorch.utils import save_visualize
 from web_tool import ROOT_DIR
 from web_tool.utils import represents_int
+from utils import make_one_hot
+
 
 AUGMENT_MODEL = MLPClassifier(
     hidden_layer_sizes=(),
@@ -68,14 +70,7 @@ class OverlapClusteringVoting(BackendModel):
             assert width_cluster == width_nn
 
             if hard_clustering:
-                output_clustering_argmax = output_clustering_soft.argmax(axis=-1)
-                # (h w)
-                output_clustering_one_hot = np.zeros((height_cluster, width_cluster, num_clusters))
-                for i in range(output_clustering_argmax.shape[0]):
-                    for j in range(output_clustering_argmax.shape[1]):
-                        cluster_id = output_clustering_argmax[i, j]
-                        output_clustering_one_hot[i, j, cluster_id] = 1.0
-                output_clustering = output_clustering_one_hot
+                output_clustering = make_one_hot(output_clustering_soft)
             else:
                 output_clustering = output_clustering_soft
                 
