@@ -39,7 +39,7 @@ class OverlapClusteringVoting(BackendModel):
         self.clustering_server_model = OverlapClustering(gpuid=gpuid)
         self.fine_tuning_server_model = KerasDenseFineTune(model_fn, gpuid, superres=superres, verbose=verbose)
         
-    def run(self, naip_data, extent, on_tile=False):
+    def run(self, naip_data, extent, on_tile=False, hard_clustering=False):
         ''' Expects naip_data to have shape (height, width, channels) and have values in the [0, 255] range.
         '''
         # use for clusters-only view:
@@ -67,15 +67,19 @@ class OverlapClusteringVoting(BackendModel):
             assert height_cluster == height_nn
             assert width_cluster == width_nn
 
-            output_clustering_argmax = output_clustering_soft.argmax(axis=-1)
-            # (h w)
-            output_clustering_one_hot = np.zeros((height_cluster, width_cluster, num_clusters))
-            for i in range(output_clustering_argmax.shape[0]):
-                for j in range(output_clustering_argmax.shape[1]):
-                    cluster_id = output_clustering_argmax[i, j]
-                    output_clustering_one_hot[i, j, cluster_id] = 1.0
-
-            output_clustering_one_hot += 0.000001
+            if hard_clustering:
+                output_clustering_argmax = output_clustering_soft.argmax(axis=-1)
+                # (h w)
+                output_clustering_one_hot = np.zeros((height_cluster, width_cluster, num_clusters))
+                for i in range(output_clustering_argmax.shape[0]):
+                    for j in range(output_clustering_argmax.shape[1]):
+                        cluster_id = output_clustering_argmax[i, j]
+                        output_clustering_one_hot[i, j, cluster_id] = 1.0
+                output_clustering = output_clustering_one_hot
+            else:
+                output_clustering = output_clustering_soft
+                
+            output_clustering += 0.000001
                     
             output = np.zeros((height_cluster, width_cluster, num_labels))
 
@@ -83,7 +87,7 @@ class OverlapClusteringVoting(BackendModel):
             stride = 1
             diameter = 2 * vote_radius + 1
             
-            c = torch.tensor(rearrange(output_clustering_one_hot, 'h w c -> () c h w')) # , dtype=torch.float
+            c = torch.tensor(rearrange(output_clustering, 'h w c -> () c h w')) # , dtype=torch.float
             l = torch.tensor(rearrange(output_neural_net_soft, 'h w l -> () l h w')) # , dtype=torch.float
             
             normalizations = torch.nn.functional.avg_pool2d(c, diameter, stride, padding=vote_radius, count_include_pad=False)
@@ -92,7 +96,7 @@ class OverlapClusteringVoting(BackendModel):
             joint_labels_clusters = rearrange(
                 torch.nn.functional.avg_pool2d(
                     torch.tensor(rearrange(
-                        np.einsum('...c,...l->...cl', output_clustering_one_hot, output_neural_net_soft),
+                        np.einsum('...c,...l->...cl', output_clustering, output_neural_net_soft),
                         'h w c l -> () (c l) h w')
                     ),
                     diameter,
@@ -109,7 +113,7 @@ class OverlapClusteringVoting(BackendModel):
             # (l c h w) / (1 c h w) --> (l c h w)
             
             
-            prob_label_given_point = np.einsum('lchw,hwc->hwl', prob_label_given_cluster, output_clustering_one_hot)
+            prob_label_given_point = np.einsum('lchw,hwc->hwl', prob_label_given_cluster, output_clustering)
             # (height, width, num_labels)
             
             output = prob_label_given_point
