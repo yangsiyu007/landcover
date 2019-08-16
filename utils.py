@@ -29,8 +29,8 @@ def test_one_hot_from_indices():
           [1., 0., 0., 0.]]])).all()
 
 
-def test_make_one_hot():
-    assert (make_one_hot(np.array(
+def test_soft_to_hard():
+    assert (soft_to_hard(np.array(
         [[[0.9,  0.,  0.1,  0.],
           [0.1,  0.8, 0.1,  0.],
           [0.2,  0.1, 0.1,  0.6]],

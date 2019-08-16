@@ -66,8 +66,18 @@ class OverlapClustering(BackendModel):
             self.process_correction_labels()
 
         naip_data = naip_data / 255.0
+        
+        path = '/mnt/blobfuse/pred-output/overlap-clustering/debug/2'
+
+        inputs_to_save = torch.tensor([rearrange(naip_data, 'h w c -> c h w')])
+        save_visualize.save_visualize(inputs_to_save,
+                                      torch.zeros(inputs_to_save.shape),
+                                      torch.zeros(inputs_to_save.shape).argmax(dim=-1),
+                                      '%s/%d' % (path, 1))
+        
         height = naip_data.shape[0]
         width = naip_data.shape[1]
+        
         if extent == self.previous_extent:
             #try:
             output = self.run_updated_model_on_tile(naip_data)
@@ -144,7 +154,7 @@ class OverlapClustering(BackendModel):
         width = naip_tile.shape[1]
         img_for_clustering = rearrange(naip_tile, 'h w c -> c h w')
         
-        for (p, mean, var, prior) in self.run_clustering(img_for_clustering, n_classes=8, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200, radius_steps=([200]*2 + [50]*10 + [25]*10)):  # + [6]*5 + [3]*5 + [1]*5))
+        for (p, mean, var, prior) in self.run_clustering(img_for_clustering, n_classes=8, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200, radius_steps=([200]*2)):
             # p: (clusters, height, width)
             self.cluster_assignments = p
             

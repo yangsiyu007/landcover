@@ -24,9 +24,11 @@ CLASS_TO_COLOR = {
 
 
 def save_visualize(inputs, outputs, ground_truth, path, rand_colors=False):
-    batch_size, channels_output, height_output, width_output = outputs.shape
-    batch_size, channels_input,  height_input,  width_input  = inputs.shape
-    # batch_size,                  height_output, width_output = ground_truth.shape
+    if outputs is not None:
+        batch_size, channels_output, height_output, width_output = outputs.shape
+    if inputs is not None:
+        batch_size, channels_input,  height_input,  width_input  = inputs.shape
+        # batch_size,                  height_output, width_output = ground_truth.shape
 
     output_classes = outputs.argmax(dim=1)
     # (batch_size, height_output, width_output)

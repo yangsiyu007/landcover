@@ -6,7 +6,10 @@ import sklearn.base
 from sklearn.neural_network import MLPClassifier
 from xgboost import XGBClassifier
 from keras import optimizers
+import torch
+from einops import rearrange
 
+from training.pytorch.utils import save_visualize
 from ServerModelsAbstract import BackendModel
 
 from web_tool import ROOT_DIR
@@ -97,6 +100,16 @@ class KerasDenseFineTune(BackendModel):
         ''' Expects naip_data to have shape (height, width, channels) and have values in the [0, 255] range.
         '''
         naip_data = naip_data / 255.0
+
+        path = '/mnt/blobfuse/pred-output/overlap-clustering/debug/2'
+
+        inputs_to_save = torch.tensor([rearrange(naip_data, 'h w c -> c h w')])
+        save_visualize.save_visualize(inputs_to_save,
+                                      torch.zeros(inputs_to_save.shape),
+                                      torch.zeros(inputs_to_save.shape).argmax(dim=-1),
+                                      '%s/%d' % (path, 0))
+
+
         output, output_features = self.run_model_on_tile(naip_data)
         
         if self.augment_model_trained:
