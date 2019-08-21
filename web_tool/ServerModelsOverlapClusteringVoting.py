@@ -63,7 +63,7 @@ class OverlapClusteringVoting(BackendModel):
 
         outputs = []
         
-        for output_clustering_soft in output_clusterings_soft:        
+        for output_clustering_soft in output_clusterings_soft:
             height_cluster, width_cluster, num_clusters = output_clustering_soft.shape
             height_nn, width_nn, num_labels = output_neural_net_soft.shape
 

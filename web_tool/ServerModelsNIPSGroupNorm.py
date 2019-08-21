@@ -7,8 +7,11 @@ import copy
 import os, json
 from training.pytorch.utils.eval_segm import mean_IoU, pixel_accuracy
 from training.pytorch.models.unet import Unet
+from training.pytorch.models.cluster_net import ClusterNet
 from torch.autograd import Variable
 import time
+
+import pdb
 
 
 def softmax(output):
@@ -103,7 +106,7 @@ class UnetgnFineTune(BackendModel):
 
         self.augment_x_train = []
         self.augment_y_train = []
-        self.model = GroupParams(self.inf_framework.model)
+        self.model = ClusterNet(GroupParams(self.inf_framework.model))
         self.init_model()
         self.model_trained = False
         self.naip_data = None
@@ -122,7 +125,7 @@ class UnetgnFineTune(BackendModel):
         self.rows = 892
         self.cols = 892
 
-    def run(self, naip_data, naip_fn, extent, padding):
+    def run(self, naip_data, extent, padding):
         if self.correction_labels is not None:
             self.set_corrections()
 
@@ -219,7 +222,7 @@ class UnetgnFineTune(BackendModel):
 
 
     def init_model(self):
-        self.model = GroupParams(self.inf_framework.model)
+        self.model = ClusterNet(GroupParams(self.inf_framework.model))
         self.model.to(self.device)
         
     def reset(self):
@@ -232,9 +235,10 @@ class UnetgnFineTune(BackendModel):
 
     def run_model_on_tile(self, naip_tile, batch_size=32):
         y_hat = self.predict_entire_image_unet_fine(naip_tile)
+        # take softmax first, then index [1:5]? (For disregarding NN "don't know" predictions in cluster-based vote)
         output = y_hat[:, :, 1:5]
         return softmax(output)
-
+    
     def predict_entire_image_unet_fine(self, x):
         if torch.cuda.is_available():
             self.model.cuda()
@@ -244,6 +248,7 @@ class UnetgnFineTune(BackendModel):
         out = np.zeros((5, w, h))
 
         norm_image1 = norm_image[:, 130:w - (w % 892) + 130, 130:h - (h % 892) + 130]
+        pdb.set_trace()
         x_c_tensor1 = torch.from_numpy(norm_image1).float().to(device)
         y_pred1 = self.model.forward(x_c_tensor1.unsqueeze(0))
         y_hat1 = (Variable(y_pred1).data).cpu().numpy()
@@ -265,7 +270,7 @@ class LastKLayersFineTune(UnetgnFineTune):
     def init_model(self):
         try:
             self.inf_framework = copy.deepcopy(self.old_inference_framework)
-            self.model = self.inf_framework.model
+            self.model = ClusterNet(self.inf_framework.model)
             self.model.to(self.device)
 
             k = self.last_k_layers
@@ -282,7 +287,10 @@ class LastKLayersFineTune(UnetgnFineTune):
         except:
             print("Trying to copy inf_framework before it exists")
 
+    def undo(self):
+        return False, "Not implemented yet"
 
+            
 class GroupParamsLastKLayersFineTune(UnetgnFineTune):
 
     def __init__(self, model_fn, gpuid, last_k_layers=1):
@@ -306,7 +314,7 @@ class GroupParamsLastKLayersFineTune(UnetgnFineTune):
                 for param in layer.parameters():
                     param.requires_grad = True
 
-            self.model = GroupParams(self.inf_framework.model)
+            self.model = ClusterNet(GroupParams(self.inf_framework.model))
             self.model.to(self.device)
 
         except:
@@ -436,7 +444,7 @@ class GroupParamsThenLastKLayersFineTune(UnetgnFineTune):
         self.inf_framework.load_model(self.model_fn)
         for param in self.inf_framework.model.parameters():
             param.requires_grad = False
-        self.model = GroupParams(self.inf_framework.model)
+        self.model = ClusterNet(GroupParams(self.inf_framework.model))
         self.init_model()
         self.model_trained = False
         self.batch_x = []
