@@ -272,9 +272,10 @@ class OverlapClustering(BackendModel):
             # output_clusters_hard = p_.argmax(axis=0)
             # output_clusters_img = save_visualize.classes_to_rgb(output_clusters_hard, color_map)
             outputs.append(p_)
+            print(p_.shape)
             yield p_, mean_, var_, prior_
             
-        base_path = '/mnt/blobfuse/pred-output/overlap-clustering'
+        base_path = '/mnt/blobfuse/pred-output/overlap-clustering/shadow'
         previous_saves = [int(subdir) for subdir in os.listdir(base_path) if represents_int(subdir)]
         if len(previous_saves) > 0:
             last_save = max(previous_saves)
@@ -298,3 +299,30 @@ class OverlapClustering(BackendModel):
         
         return p_, mean_, var_, prior_
     
+
+
+
+    
+if __name__ == '__main__':
+    from scipy import misc
+    img = misc.imread('/home/blelias/checker_shadow/Checker_shadow_illusion.png')
+    img = img / 255
+    img = rearrange(img, 'h w c -> c h w')
+
+    print('hello world')
+
+#    for x in OverlapClustering().run_clustering(img, n_classes=4, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200, radius_steps=([1000]*15)):
+#        print(x[0].shape)
+    
+#    for x in OverlapClustering().run_clustering(img, n_classes=4, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200, radius_steps=([1000]*2 + [20]*13)):
+#        print(x[0].shape)
+
+    for x in OverlapClustering().run_clustering(img, n_classes=3, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200, radius_steps=([1000]*2 + [20]*13)):
+        print(x[0].shape)
+
+
+#    for x in OverlapClustering().run_clustering(img, n_classes=4, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200, radius_steps=([1000]*2 + [100]*13 + [50]*10)):
+#        print(x[0].shape)
+
+    
+

@@ -33,7 +33,7 @@ def save_visualize(inputs, outputs, ground_truth, path, rand_colors=False):
     output_classes = outputs.argmax(dim=1)
     # (batch_size, height_output, width_output)
     # ground_truth has same shape as outputs
-
+    
     sanitized_inputs = inputs_to_rgb(inputs)
 
     if rand_colors:
