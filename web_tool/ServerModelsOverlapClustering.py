@@ -19,7 +19,7 @@ from ServerModelsAbstract import BackendModel
 from web_tool import ROOT_DIR
 from training.pytorch.utils import save_visualize
 from web_tool.utils import represents_int
-from clustering import OverlapCluster
+import clustering
 
 
 AUGMENT_MODEL = MLPClassifier(
@@ -59,7 +59,7 @@ class OverlapClustering(BackendModel):
         self.num_output_channels = 4
         self.device = torch.device('cuda:0')
 
-        self.overlap = OverlapCluster()
+        self.overlap = clustering.OverlapClustering()
         
         
     def run(self, naip_data, extent, on_tile=False, collapse_clusters=True):
