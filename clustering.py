@@ -59,7 +59,7 @@ class OverlapClustering():
         p_new = self.prob_gaussian(data, prior, mean, var, radius, stride)
         return p_new, mean, var, prior
 
-    def run_clustering(self, image, n_classes, radius, n_iter, stride, warmup_steps, warmup_radius, radius_steps):
+    def run_clustering(self, image, n_classes, radius, n_iter, stride, warmup_steps, warmup_radius, radius_steps, animate=False, color_map=None):
         t = time.time()
         
         data = torch.tensor(image).to(self.device)
@@ -79,24 +79,30 @@ class OverlapClustering():
             
             # output_clusters_hard = p_.argmax(axis=0)
             # output_clusters_img = save_visualize.classes_to_rgb(output_clusters_hard, color_map)
-            outputs.append(p_)
-            print(p_.shape)
+            if animate:
+                new_output = save_visualize.classes_to_rgb(p_.argmax(dim=0), color_map)
+                # animate(new_output)
+            else:
+                outputs.append(p_)
+                
             yield p_, mean_, var_, prior_
             
-        base_path = '/mnt/blobfuse/pred-output/overlap-clustering/shadow'
-        previous_saves = [int(subdir) for subdir in os.listdir(base_path) if represents_int(subdir)]
-        if len(previous_saves) > 0:
-            last_save = max(previous_saves)
-        else:
-            last_save = 0
-        path = '%s/%d' % (base_path, last_save + 1)
 
-        inputs = torch.tensor([image])
-        outputs = torch.tensor(outputs)
+        if not animate:
+            base_path = '/mnt/blobfuse/pred-output/overlap-clustering/shadow'
+            previous_saves = [int(subdir) for subdir in os.listdir(base_path) if represents_int(subdir)]
+            if len(previous_saves) > 0:
+                last_save = max(previous_saves)
+            else:
+                last_save = 0
+            path = '%s/%d' % (base_path, last_save + 1)
+
+            inputs = torch.tensor([image])
+            outputs = torch.tensor(outputs)
         
-        # save_visualize.save_batch(outputs, path, 'output_clustering')
-        # save_visualize.save_batch(inputs_visualize, path, 'input_clustering')
-        save_visualize.save_visualize(inputs, outputs, None, path, rand_colors=True)
+            # save_visualize.save_batch(outputs, path, 'output_clustering')
+            # save_visualize.save_batch(inputs_visualize, path, 'input_clustering')
+            save_visualize.save_visualize(inputs, outputs, None, path, rand_colors=True)
         
         p_ = p.cpu().numpy()
         mean_ = mean.cpu().numpy()

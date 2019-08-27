@@ -23,6 +23,22 @@ CLASS_TO_COLOR = {
 }
 
 
+def choose_colors(color_map, rand_colors=False):
+    if color_map:
+        return color_map
+    elif rand_colors:
+        return {
+            i: [
+                random.randint(0, 255),
+                random.randint(0, 255),
+                random.randint(0, 255)
+            ]
+            for i in range(channels_output)
+        }
+    else:
+        return CLASS_TO_COLOR
+        
+
 def save_visualize(inputs, outputs, ground_truth, path, rand_colors=False, color_map=None):
     if outputs is not None:
         batch_size, channels_output, height_output, width_output = outputs.shape
@@ -36,19 +52,7 @@ def save_visualize(inputs, outputs, ground_truth, path, rand_colors=False, color
     
     sanitized_inputs = inputs_to_rgb(inputs)
 
-    if color_map:
-        color_map = color_map
-    elif rand_colors:
-        color_map = {
-            i: [
-                random.randint(0, 255),
-                random.randint(0, 255),
-                random.randint(0, 255)
-            ]
-            for i in range(channels_output)
-        }
-    else:
-        color_map = CLASS_TO_COLOR
+    color_map = resolve_colors(color_map, rand_colors=rand_colors)
     
     cropped_inputs = crop_to_smallest_dimensions(sanitized_inputs, outputs, (2, 3))
     outputs_color = classes_to_rgb(output_classes, color_map)
@@ -81,11 +85,13 @@ def inputs_to_rgb(inputs):
         dtype=torch.uint8)
 
 
-def classes_to_rgb(predictions, color_map):
+def classes_to_rgb(predictions, color_map, rand_colors=False):
     # predictions: (batch_size, height, width)
     # return: (batch_size, rgb_channels, height_width)
     predictions = torch.as_tensor(predictions, dtype=torch.uint8)
     batch_size, height, width = predictions.shape
+
+    color_map = resolve_colors(color_map, rand_colors=rand_colors)
     
     rgb_channels = 3
     rgb_outputs = torch.zeros((batch_size, height, width, rgb_channels), dtype=torch.uint8)
