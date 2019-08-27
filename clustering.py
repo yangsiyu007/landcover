@@ -74,8 +74,8 @@ class OverlapClustering():
         n_iter = len(radius_steps)
 
         # Initialize animation
-        # fig = plt.figure()
-        # im = plt.imshow(np.random.random((5,5)))
+        fig = plt.figure()
+        plt.imshow(np.random.random((5,5)))
         outputs = []
         
         
@@ -91,13 +91,15 @@ class OverlapClustering():
             # output_clusters_img = save_visualize.classes_to_rgb(output_clusters_hard, color_map)
             if animate:
                 new_output = save_visualize.classes_to_rgb(rearrange(p_.argmax(axis=0), 'h w -> () h w'), color_map)[0]
+                
                 plt.imshow(rearrange(new_output.numpy(), 'c h w -> h w c'))
-                plt.show()
+                plt.pause(0.05)
             else:
                 outputs.append(p_)
                 
             yield p_, mean_, var_, prior_
-            
+
+        plt.show()
 
         if not animate:
             base_path = '/mnt/blobfuse/pred-output/overlap-clustering/shadow'
