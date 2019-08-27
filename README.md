@@ -19,7 +19,7 @@ sudo apt-get update
 sudo apt-get install blobfuse
 conda activate py35
 conda install rasterio fiona shapely rtree
-pip install --user --upgrade bottle mercantile rasterio
+pip install --user --upgrade bottle mercantile rasterio imageio
 conda deactivate
 ```
 - Log out and log back in
