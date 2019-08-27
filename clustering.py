@@ -7,7 +7,7 @@ import numpy as np
 from einops import rearrange
 
 import imageio
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
 from PIL import Image
 
 from training.pytorch.utils import save_visualize
@@ -74,11 +74,11 @@ class OverlapClustering():
         n_iter = len(radius_steps)
 
         # Initialize animation
-        fig = None
-        if animate:
-            fig = plt.figure()
-        
+        # fig = plt.figure()
+        # im = plt.imshow(np.random.random((5,5)))
         outputs = []
+        
+        
         for i in range(n_iter):
             p, mean, var, prior = self.em(data, p, radius_steps[i], stride)# stride if i<n_iter-1 else 1)
 
@@ -91,7 +91,8 @@ class OverlapClustering():
             # output_clusters_img = save_visualize.classes_to_rgb(output_clusters_hard, color_map)
             if animate:
                 new_output = save_visualize.classes_to_rgb(rearrange(p_.argmax(axis=0), 'h w -> () h w'), color_map)[0]
-                Image.fromarray(rearrange(new_output.numpy(), 'c h w -> h w c'), 'RGB').show()
+                plt.imshow(rearrange(new_output.numpy(), 'c h w -> h w c'))
+                plt.show()
             else:
                 outputs.append(p_)
                 
