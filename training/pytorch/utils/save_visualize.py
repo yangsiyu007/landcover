@@ -23,7 +23,7 @@ CLASS_TO_COLOR = {
 }
 
 
-def save_visualize(inputs, outputs, ground_truth, path, rand_colors=False):
+def save_visualize(inputs, outputs, ground_truth, path, rand_colors=False, color_map=None):
     if outputs is not None:
         batch_size, channels_output, height_output, width_output = outputs.shape
     if inputs is not None:
@@ -36,7 +36,9 @@ def save_visualize(inputs, outputs, ground_truth, path, rand_colors=False):
     
     sanitized_inputs = inputs_to_rgb(inputs)
 
-    if rand_colors:
+    if color_map:
+        color_map = color_map
+    elif rand_colors:
         color_map = {
             i: [
                 random.randint(0, 255),
