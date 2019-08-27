@@ -63,12 +63,15 @@ class OverlapClustering():
         p_new = self.prob_gaussian(data, prior, mean, var, radius, stride)
         return p_new, mean, var, prior
 
-    def run_clustering(self, image, n_classes, radius, n_iter, stride, warmup_steps, warmup_radius, radius_steps, animate=False, color_map=None):
+    def run_clustering(self, image, n_classes, radius, n_iter, stride, warmup_steps, warmup_radius, radius_steps, animate=False, color_map=None, init_p=None):
         t = time.time()
         
         data = torch.tensor(image).to(self.device)
-        p = torch.rand((n_classes,) + image.shape[1:], dtype=torch.double).to(self.device)
-        p /= p.sum(0)
+        if init_p is not None:
+            p = torch.tensor(init_p).to(self.device)
+        else:
+            p = torch.rand((n_classes,) + image.shape[1:], dtype=torch.double).to(self.device)
+            p /= p.sum(0)
 
         n_iter = len(radius_steps)
 
