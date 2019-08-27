@@ -43,10 +43,11 @@ class OverlapClustering():
         #means: c,ch,x,y
         #data: ch,x,y
         #out: c,x,y
-        m0 = -self.local_avg(1 / var, radius, stride)
-        m1 = self.local_avg(2 * mean / var, radius, stride)
-        m2 = -self.local_avg(mean**2 / var, radius, stride)
-        L = self.local_avg(torch.log(var), radius, stride) / 2 # fix to compute log(sigma), not log(sigma^2)
+        m0 = -(1 / var)
+        m1 = (2 * mean / var)
+        m2 = -(mean**2 / var)
+        L = (torch.log(var)) / 2 # fix to compute log(sigma), not log(sigma^2)
+
         return (m0*data**2 + m1*data + m2 - 2 * L).sum(1) / 2
     
     def prob_gaussian(self, data, prior, mean, var, radius, stride=1):
