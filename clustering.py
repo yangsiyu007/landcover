@@ -32,7 +32,6 @@ class OverlapClustering():
     def local_moments(self, data, q, radius, stride=1, var_min=0.0001, mq_min=0.000001):
         mq = self.local_avg(q, radius, stride)
         mq.clamp(min=mq_min)
-        pdb.set_trace()
         weighted = torch.einsum('zij,cij->czij', data, q) #class,channel,x,y
         weighted_sq = torch.einsum('zij,cij->czij', data**2, q)
         mean = self.local_avg(weighted, radius, stride) / mq.unsqueeze(1)
