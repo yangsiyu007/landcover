@@ -1,12 +1,16 @@
 import time
 import os
+import pdb
 
 import torch
 import numpy as np
 from einops import rearrange
 
 import imageio
-import matplotlib
+import matplotlib.pyplot as plt
+from PIL import Image
+
+from training.pytorch.utils import save_visualize
 
 
 class OverlapClustering():
@@ -28,6 +32,7 @@ class OverlapClustering():
     def local_moments(self, data, q, radius, stride=1, var_min=0.0001, mq_min=0.000001):
         mq = self.local_avg(q, radius, stride)
         mq.clamp(min=mq_min)
+        pdb.set_trace()
         weighted = torch.einsum('zij,cij->czij', data, q) #class,channel,x,y
         weighted_sq = torch.einsum('zij,cij->czij', data**2, q)
         mean = self.local_avg(weighted, radius, stride) / mq.unsqueeze(1)
@@ -67,6 +72,11 @@ class OverlapClustering():
         p /= p.sum(0)
 
         n_iter = len(radius_steps)
+
+        # Initialize animation
+        fig = None
+        if animate:
+            fig = plt.figure()
         
         outputs = []
         for i in range(n_iter):
@@ -80,8 +90,8 @@ class OverlapClustering():
             # output_clusters_hard = p_.argmax(axis=0)
             # output_clusters_img = save_visualize.classes_to_rgb(output_clusters_hard, color_map)
             if animate:
-                new_output = save_visualize.classes_to_rgb(p_.argmax(dim=0), color_map)
-                # animate(new_output)
+                new_output = save_visualize.classes_to_rgb(rearrange(p_.argmax(axis=0), 'h w -> () h w'), color_map)[0]
+                Image.fromarray(rearrange(new_output.numpy(), 'c h w -> h w c'), 'RGB').show()
             else:
                 outputs.append(p_)
                 
@@ -116,7 +126,7 @@ class OverlapClustering():
 
 
 if __name__ == '__main__':
-    img = imageio.imread('checker-shadow/input.png')
+    img = imageio.imread('checker-shadow/input-small.png')
     img = img / 255
     img = rearrange(img, 'h w c -> c h w')
     

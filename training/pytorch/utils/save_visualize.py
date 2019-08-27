@@ -52,7 +52,7 @@ def save_visualize(inputs, outputs, ground_truth, path, rand_colors=False, color
     
     sanitized_inputs = inputs_to_rgb(inputs)
 
-    color_map = resolve_colors(color_map, rand_colors=rand_colors)
+    color_map = choose_colors(color_map, rand_colors=rand_colors)
     
     cropped_inputs = crop_to_smallest_dimensions(sanitized_inputs, outputs, (2, 3))
     outputs_color = classes_to_rgb(output_classes, color_map)
@@ -91,7 +91,7 @@ def classes_to_rgb(predictions, color_map, rand_colors=False):
     predictions = torch.as_tensor(predictions, dtype=torch.uint8)
     batch_size, height, width = predictions.shape
 
-    color_map = resolve_colors(color_map, rand_colors=rand_colors)
+    color_map = choose_colors(color_map, rand_colors=rand_colors)
     
     rgb_channels = 3
     rgb_outputs = torch.zeros((batch_size, height, width, rgb_channels), dtype=torch.uint8)
