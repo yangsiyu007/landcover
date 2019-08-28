@@ -4,6 +4,8 @@ import torch
 from matplotlib import pyplot as pt
 import time
 import pdb
+import os
+from web_tool.utils import represents_int
 
 device = torch.device('cuda:0')
 
@@ -18,7 +20,6 @@ def local_avg(data, radius, stride=1):
 def local_moments(data, q, radius, stride=1, var_min=0.0001, mq_min=0.000001):
     mq = local_avg(q, radius, stride)
     mq.clamp(min=mq_min)
-    pdb.set_trace()
     weighted = torch.einsum('zij,cij->czij', data, q) #class,channel,x,y
     weighted_sq = torch.einsum('zij,cij->czij', data**2, q)
     mean = local_avg(weighted, radius, stride) / mq.unsqueeze(1)
@@ -77,7 +78,7 @@ def run_clustering(image, n_classes, radius, n_iter, stride, warmup_steps, warmu
         outputs.append(p_)
         yield p_, mean_, var_, prior_
         
-    base_path = '/mnt/blobfuse/pred-output/overlap-clustering'
+    '''base_path = '/mnt/blobfuse/pred-output/overlap-clustering'
     previous_saves = [int(subdir) for subdir in os.listdir(base_path) if represents_int(subdir)]
     if len(previous_saves) > 0:
         last_save = max(previous_saves)
@@ -90,7 +91,7 @@ def run_clustering(image, n_classes, radius, n_iter, stride, warmup_steps, warmu
         
     # save_visualize.save_batch(outputs, path, 'output_clustering')
     # save_visualize.save_batch(inputs_visualize, path, 'input_clustering')
-    save_visualize.save_visualize(inputs, outputs, None, path, rand_colors=True)
+    save_visualize.save_visualize(inputs, outputs, None, path, rand_colors=True)'''
     
     p_ = p.cpu().numpy()
     mean_ = mean.cpu().numpy()

@@ -248,7 +248,6 @@ class UnetgnFineTune(BackendModel):
         out = np.zeros((5, w, h))
 
         norm_image1 = norm_image[:, 130:w - (w % 892) + 130, 130:h - (h % 892) + 130]
-        pdb.set_trace()
         x_c_tensor1 = torch.from_numpy(norm_image1).float().to(device)
         y_pred1 = self.model.forward(x_c_tensor1.unsqueeze(0))
         y_hat1 = (Variable(y_pred1).data).cpu().numpy()
