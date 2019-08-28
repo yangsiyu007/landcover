@@ -4,7 +4,6 @@ import json
 import os
 
 from einops import rearrange
-import numpy as np
 
 from training.pytorch.models.unet import Unet
 from training.clustering.overlap_clustering import run_clustering
@@ -26,7 +25,7 @@ class ClusterNet(nn.Module):
         
     def forward(self, x, hard_clustering=False):
         # x: (batch, height, width, channels), range [0, 1]
-        output_neural_net_soft = self.model.forward(x)
+        output_neural_net_soft = self.model.forward(x).double()
 
         if not self.output_clustering_soft:
             x_new = rearrange(torch.tensor(x, dtype=torch.double).cuda(), '() h w c -> h w c')
@@ -35,7 +34,7 @@ class ClusterNet(nn.Module):
             for output_clustering_soft in output_clusterings_soft: pass
             self.output_clustering_soft = output_clustering_soft
 
-        pdb.set_trace()
+
         cluster_assignments, mean, var, prior = self.output_clustering_soft
             
         num_clusters, height_cluster, width_cluster = cluster_assignments.shape
@@ -67,19 +66,20 @@ class ClusterNet(nn.Module):
         vote_radius = 25
         stride = 1
         diameter = 2 * vote_radius + 1
+
+        pdb.set_trace()
         
-        c = torch.tensor(rearrange(output_clustering, 'c h w -> () c h w')).to(x.device)  # , dtype=torch.float
-        l = torch.tensor(rearrange(output_neural_net_soft, '() l h w -> () h w l')).to(x.device)  # , dtype=torch.float
+        c = rearrange(output_clustering, 'c h w -> () c h w')
+        l = rearrange(output_neural_net_soft, '() l h w -> () h w l')
         
         normalizations = torch.nn.functional.avg_pool2d(c, diameter, stride, padding=vote_radius, count_include_pad=False)
         # (1 c h w)
         
         joint_labels_clusters = rearrange(
             torch.nn.functional.avg_pool2d(
-                torch.tensor(rearrange(
-                    np.einsum('chw, blhw -> bclhw', output_clustering, output_neural_net_soft),
-                    'b c l h w -> b (c l) h w')
-                ).to(x.device),
+                rearrange(
+                    torch.einsum('chw, blhw -> bclhw', output_clustering, output_neural_net_soft),
+                    'b c l h w -> b (c l) h w'),
                 diameter,
                 stride,
                 padding=vote_radius,
@@ -94,8 +94,8 @@ class ClusterNet(nn.Module):
         # (l c h w) / (1 c h w) --> (l c h w)
         
         
-        prob_label_given_point = torch.einsum('lchw,hwc->hwl', prob_label_given_cluster, output_clustering).to(x.device)
-        # (height, width, num_labels)
+        prob_label_given_point = torch.einsum('lchw,chw->lhw', prob_label_given_cluster, output_clustering).to(x.device)
+        # (num_labels, height, width)
         
         output = prob_label_given_point
 

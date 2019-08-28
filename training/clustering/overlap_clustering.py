@@ -68,15 +68,10 @@ def run_clustering(image, n_classes, radius, n_iter, stride, warmup_steps, warmu
     for i in range(n_iter):
         p, mean, var, prior = em(data, p, radius_steps[i], stride)# stride if i<n_iter-1 else 1)
         
-        p_ = p.cpu().numpy()
-        mean_ = mean.cpu().numpy()
-        var_ = var.cpu().numpy()
-        prior_ = prior.cpu().numpy()
-        
         # output_clusters_hard = p_.argmax(axis=0)
         # output_clusters_img = save_visualize.classes_to_rgb(output_clusters_hard, color_map)
-        outputs.append(p_)
-        yield p_, mean_, var_, prior_
+        outputs.append(p)
+        yield p, mean, var, prior
         
     '''base_path = '/mnt/blobfuse/pred-output/overlap-clustering'
     previous_saves = [int(subdir) for subdir in os.listdir(base_path) if represents_int(subdir)]
