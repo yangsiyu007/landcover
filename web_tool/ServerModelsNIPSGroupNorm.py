@@ -1,4 +1,3 @@
-
 from web_tool.ServerModelsAbstract import BackendModel
 import torch
 import numpy as np
@@ -8,6 +7,8 @@ import os, json
 from training.pytorch.utils.eval_segm import mean_IoU, pixel_accuracy
 from training.pytorch.models.unet import Unet
 from training.pytorch.models.cluster_net import ClusterNet
+from training.pytorch.utils.save_visualize import save_visualize
+
 from torch.autograd import Variable
 import time
 
@@ -246,11 +247,16 @@ class UnetgnFineTune(BackendModel):
         _, w, h = norm_image.shape
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         out = np.zeros((5, w, h))
-
         norm_image1 = norm_image[:, 130:w - (w % 892) + 130, 130:h - (h % 892) + 130]
         x_c_tensor1 = torch.from_numpy(norm_image1).float().to(device)
         y_pred1 = self.model.forward(x_c_tensor1.unsqueeze(0))
         y_hat1 = (Variable(y_pred1).data).cpu().numpy()
+        pdb.set_trace()
+        save_visualize(torch.tensor([x]),
+                       torch.tensor([y_hat1]),
+                       None,
+                       '/mnt/blobfuse/pred-output/cluster-voting/'
+        )
         out[:, 92 + 130:w - (w % 892) + 130 - 92, 92 + 130:h - (h % 892) - 92 + 130] = y_hat1
         pred = np.rollaxis(out, 0, 3)
         print(pred.shape)
