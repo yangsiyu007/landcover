@@ -48,14 +48,14 @@ def save_visualize(inputs, outputs, ground_truth, path, rand_colors=False):
     else:
         color_map = CLASS_TO_COLOR
     
-    cropped_inputs = crop_to_smallest_dimensions(sanitized_inputs, outputs, (2, 3))
+    # cropped_inputs = crop_to_smallest_dimensions(sanitized_inputs, outputs, (2, 3))
     outputs_color = classes_to_rgb(output_classes, color_map)
     if ground_truth is not None:
         ground_truth_color = classes_to_rgb(ground_truth, color_map)
 
     # save cropped_inputs, outputs, ground_truth
     save_batch(sanitized_inputs, path, 'input')
-    save_batch(cropped_inputs, path, 'cropped_input')
+    # save_batch(cropped_inputs, path, 'cropped_input')
     save_batch(outputs_color, path, 'predictions')
     if ground_truth is not None:
         save_batch(ground_truth_color, path, 'ground_truth')

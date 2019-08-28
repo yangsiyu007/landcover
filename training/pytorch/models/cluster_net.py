@@ -9,7 +9,7 @@ from training.pytorch.models.unet import Unet
 from training.clustering.overlap_clustering import run_clustering
 import utils
 
-from training.pytorch.utils.save_visualize import crop_to_smallest_dimensions
+from training.pytorch.utils.save_visualize import crop_to_smallest_dimensions, save_visualize
 
 import pdb
 
@@ -42,7 +42,8 @@ class ClusterNet(nn.Module):
 
         # <HACK> / wrong -- see neural net cropping/offset logic for more precise calculations
         offset_width = width_cluster % 2
-        offset_height = height_cluster % 2        
+        offset_height = height_cluster % 2
+
         cluster_assignments_in_window = crop_to_smallest_dimensions(cluster_assignments[:,
                                                                                         :height_cluster-offset_height,
                                                                                         :width_cluster-offset_width],
@@ -96,8 +97,18 @@ class ClusterNet(nn.Module):
         
         prob_label_given_point = torch.einsum('lchw,chw->lhw', prob_label_given_cluster, output_clustering).to(x.device)
         # (num_labels, height, width)
-        
-        output = prob_label_given_point
 
+        output = torch.zeros((5, 708, 708))
+        output[-1, :, :] = 1
+        output[:, 32:-32, 32:-32] = 0
+        output[:, 32:-32, 32:-32] = prob_label_given_point
+
+        pdb.set_trace()
+        save_visualize(x,
+                       rearrange(output, 'c h w -> () c h w'),
+                       rearrange(output_clustering.argmax(dim=0), 'h w -> () h w'),
+                       '/mnt/blobfuse/pred-output/cluster-voting/'
+        )
+        
         
         return output

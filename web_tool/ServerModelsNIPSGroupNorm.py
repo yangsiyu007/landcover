@@ -127,6 +127,8 @@ class UnetgnFineTune(BackendModel):
         self.cols = 892
 
     def run(self, naip_data, extent, padding):
+        pdb.set_trace()
+        
         if self.correction_labels is not None:
             self.set_corrections()
 
