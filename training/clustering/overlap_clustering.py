@@ -1,9 +1,11 @@
 import numpy as np
 import rasterio
-import torch as T
+import torch
 from matplotlib import pyplot as pt
+import time
+import pdb
 
-device = T.device('cuda:0')
+device = torch.device('cuda:0')
 
 
 def local_avg(data, radius, stride=1):
@@ -16,6 +18,7 @@ def local_avg(data, radius, stride=1):
 def local_moments(data, q, radius, stride=1, var_min=0.0001, mq_min=0.000001):
     mq = local_avg(q, radius, stride)
     mq.clamp(min=mq_min)
+    pdb.set_trace()
     weighted = torch.einsum('zij,cij->czij', data, q) #class,channel,x,y
     weighted_sq = torch.einsum('zij,cij->czij', data**2, q)
     mean = local_avg(weighted, radius, stride) / mq.unsqueeze(1)
