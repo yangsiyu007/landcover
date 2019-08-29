@@ -107,7 +107,7 @@ class UnetgnFineTune(BackendModel):
 
         self.augment_x_train = []
         self.augment_y_train = []
-        self.model = (GroupParams(self.inf_framework.model))
+        self.model = ClusterNet(GroupParams(self.inf_framework.model))
         self.init_model()
         self.model_trained = False
         self.naip_data = None
@@ -223,7 +223,7 @@ class UnetgnFineTune(BackendModel):
 
 
     def init_model(self):
-        self.model = (GroupParams(self.inf_framework.model))
+        self.model = ClusterNet(GroupParams(self.inf_framework.model))
         self.model.to(self.device)
         
     def reset(self):
@@ -268,11 +268,11 @@ class UnetgnFineTune(BackendModel):
             92 + width_padding : width_padding + desired_input_size - 92,
             92 + height_padding : height_padding + desired_input_size - 92] = y_hat1[0]
 
-        save_visualize(torch.tensor([x]),
-                       torch.tensor(y_hat1),
-                       None,
-                       '/mnt/blobfuse/pred-output/cluster-voting/'
-        )
+        #save_visualize(torch.tensor([x]),
+        #               torch.tensor(y_hat1),
+        #               None,
+        #               '/mnt/blobfuse/pred-output/cluster-voting/'
+        #)
         
         
         pred = np.rollaxis(out, 0, 3)
@@ -292,7 +292,7 @@ class LastKLayersFineTune(UnetgnFineTune):
     def init_model(self):
         try:
             self.inf_framework = copy.deepcopy(self.old_inference_framework)
-            self.model = (self.inf_framework.model)
+            self.model = ClusterNet(self.inf_framework.model)
             self.model.to(self.device)
 
             k = self.last_k_layers
@@ -336,7 +336,7 @@ class GroupParamsLastKLayersFineTune(UnetgnFineTune):
                 for param in layer.parameters():
                     param.requires_grad = True
 
-            self.model = (GroupParams(self.inf_framework.model))
+            self.model = ClusterNet(GroupParams(self.inf_framework.model))
             self.model.to(self.device)
 
         except:
@@ -466,7 +466,7 @@ class GroupParamsThenLastKLayersFineTune(UnetgnFineTune):
         self.inf_framework.load_model(self.model_fn)
         for param in self.inf_framework.model.parameters():
             param.requires_grad = False
-        self.model = (GroupParams(self.inf_framework.model))
+        self.model = ClusterNet(GroupParams(self.inf_framework.model))
         self.init_model()
         self.model_trained = False
         self.batch_x = []
