@@ -127,8 +127,6 @@ class UnetgnFineTune(BackendModel):
         self.cols = 892
 
     def run(self, naip_data, extent, padding):
-        pdb.set_trace()
-        
         if self.correction_labels is not None:
             self.set_corrections()
 
@@ -250,17 +248,33 @@ class UnetgnFineTune(BackendModel):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         out = np.zeros((5, w, h))
         out[-1, :, :] = 1
-        norm_image1 = norm_image[:, 130:w - (w % 892) + 130, 130:h - (h % 892) + 130]
+
+        desired_input_size = 892
+        width_padding = (w - desired_input_size) // 2
+        height_padding = (h - desired_input_size) // 2
+
+        norm_image1 = norm_image[:,
+                                 width_padding : width_padding + desired_input_size,
+                                 height_padding : height_padding + desired_input_size]
+
+        _, cropped_w, cropped_h = norm_image1.shape
+        pdb.set_trace()
+        
         x_c_tensor1 = torch.from_numpy(norm_image1).float().to(device)
         y_pred1 = self.model.forward(x_c_tensor1.unsqueeze(0))
         y_hat1 = (Variable(y_pred1).data).cpu().numpy()
-        pdb.set_trace()
-        #save_visualize(torch.tensor([x]),
-        #               torch.tensor(y_hat1),
-        #               None,
-        #               '/mnt/blobfuse/pred-output/cluster-voting/'
-        #)
-        out[:, 92 + 130 + 32:w - (w % 892) + 130 - 92 - 32, 92 + 130 + 32:h - (h % 892) - 92 + 130 - 32] = y_hat1[0]
+        
+        out[:,
+            92 + width_padding : width_padding + desired_input_size - 92,
+            92 + height_padding : height_padding + desired_input_size - 92] = y_hat1[0]
+
+        save_visualize(torch.tensor([x]),
+                       torch.tensor(y_hat1),
+                       None,
+                       '/mnt/blobfuse/pred-output/cluster-voting/'
+        )
+        
+        
         pred = np.rollaxis(out, 0, 3)
         print(pred.shape)
         return pred
