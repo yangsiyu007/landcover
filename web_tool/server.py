@@ -354,6 +354,7 @@ def pred_patch():
     outputs = [Session.model.run(naip_data, extent, False)]
     
     for output in outputs:
+        pdb.set_trace()
         assert len(output.shape) == 3, "The model function should return an image shaped as (height, width, num_classes)"
         assert (output.shape[2] < output.shape[0] and output.shape[2] < output.shape[1]), "The model function should return an image shaped as (height, width, num_classes)" # assume that num channels is less than img dimensions
 
@@ -573,6 +574,16 @@ def main():
         ],
         help="Model to use", required=True
     )
+    parser.add_argument("--stage", action="store", dest="stage",
+        choices=[
+            'all',
+            'clustering',
+            'unet'
+        ],
+        default='all',
+        help="Which component of overlap clustering outputs to return", required=True
+    )
+
     parser.add_argument("--fine_tune", action="store", dest="fine_tune",
         choices=[
             "last_layer",
@@ -610,7 +621,7 @@ def main():
             model = ServerModelsNIPS.KerasBackPropFineTune(args.model_fn, args.gpuid, superres=False)
     elif args.model == "group_norm":
         if args.fine_tune == "last_k_layers":
-            model = ServerModelsNIPSGroupNorm.LastKLayersFineTune(args.model_fn, args.gpuid, last_k_layers=1)
+            model = ServerModelsNIPSGroupNorm.LastKLayersFineTune(args.model_fn, args.gpuid, last_k_layers=1, stage=args.stage)
         elif args.fine_tune == "group_params":
             model = ServerModelsNIPSGroupNorm.UnetgnFineTune(args.model_fn, args.gpuid)
         elif args.fine_tune == "last_k_plus_group_params":
@@ -618,7 +629,7 @@ def main():
         elif args.fine_tune == "group_params_then_last_k":
             model = ServerModelsNIPSGroupNorm.GroupParamsThenLastKLayersFineTune(args.model_fn, args.gpuid, last_k_layers=2)
     elif args.model == "overlap_clustering":
-        model = ServerModelsOverlapClustering.OverlapClustering(args.model_fn, args.gpuid, superres=False)
+        model = ServerModelsOverlapClustering.OverlapClustering(args.gpuid)
     elif args.model == "overlap_clustering_voting":
         model = ServerModelsOverlapClusteringVoting.OverlapClusteringVoting(args.model_fn, args.gpuid, superres=False)
     elif args.model == "existing":

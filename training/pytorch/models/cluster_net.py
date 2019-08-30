@@ -18,15 +18,23 @@ import pdb
 
 class ClusterNet(nn.Module):
 
-    def __init__(self, model):
+    def __init__(self, model, stage='full'):
         nn.Module.__init__(self)
         self.model = model
         self.output_clustering_soft = None
+        self.stage = stage
         
     def forward(self, x, hard_clustering=False):
+        ### Compute U-net outputs
         # x: (batch, height, width, channels), range [0, 1]
         output_neural_net_soft = self.model.forward(x).double()
 
+        pdb.set_trace()
+        if self.stage == 'unet':
+            return output_neural_net_soft
+
+        
+        ### Compute clustering outputs
         if not self.output_clustering_soft:
             x_new = rearrange(torch.tensor(x, dtype=torch.double).cuda(), '() h w c -> h w c')
             output_clusterings_soft = run_clustering(x_new, n_classes=8, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200, radius_steps=([25]*1))
@@ -34,7 +42,7 @@ class ClusterNet(nn.Module):
             for output_clustering_soft in output_clusterings_soft: pass
             self.output_clustering_soft = output_clustering_soft
 
-
+        ### Compute votes
         cluster_assignments, mean, var, prior = self.output_clustering_soft
             
         num_clusters, height_cluster, width_cluster = cluster_assignments.shape
@@ -61,15 +69,19 @@ class ClusterNet(nn.Module):
             output_clustering = cluster_assignments_in_window
             
         output_clustering += 0.000001
+
+        if self.stage == 'clustering':
+            return output_clustering
+
         
+        ### Compute votes
         # output = torch.zeros((height_cluster, width_cluster, num_labels)).to(x.device)
         
         vote_radius = 25
         stride = 1
         diameter = 2 * vote_radius + 1
 
-        pdb.set_trace()
-        
+
         c = rearrange(output_clustering, 'c h w -> () c h w')
         l = rearrange(output_neural_net_soft, '() l h w -> () h w l')
         
@@ -100,7 +112,6 @@ class ClusterNet(nn.Module):
 
         output = prob_label_given_point
 
-        pdb.set_trace()
 #        save_visualize(x,
 #                       rearrange(output, 'c h w -> () c h w'),
 #                       rearrange(output_clustering.argmax(dim=0), 'h w -> () h w'),

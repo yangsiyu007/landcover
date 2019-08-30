@@ -81,7 +81,7 @@ class GroupParams(nn.Module):
     
 class UnetgnFineTune(BackendModel):
 
-    def __init__(self, model_fn, gpuid):
+    def __init__(self, model_fn, gpuid, stage='all'):
 
         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
         os.environ["CUDA_VISIBLE_DEVICES"] = str(gpuid)
@@ -107,8 +107,8 @@ class UnetgnFineTune(BackendModel):
 
         self.augment_x_train = []
         self.augment_y_train = []
-        self.model = ClusterNet(GroupParams(self.inf_framework.model))
-        self.init_model()
+        self.model = ClusterNet(GroupParams(self.inf_framework.model), stage=stage)
+        self.init_model(stage=stage)
         self.model_trained = False
         self.naip_data = None
         self.correction_labels = None
@@ -222,8 +222,8 @@ class UnetgnFineTune(BackendModel):
                                tdst_col + padding: bdst_col + 1 + padding, class_idx + 1] = 1.0
 
 
-    def init_model(self):
-        self.model = ClusterNet(GroupParams(self.inf_framework.model))
+    def init_model(self, stage):
+        self.model = ClusterNet(GroupParams(self.inf_framework.model), stage=stage)
         self.model.to(self.device)
         
     def reset(self):
@@ -258,7 +258,6 @@ class UnetgnFineTune(BackendModel):
                                  height_padding : height_padding + desired_input_size]
 
         _, cropped_w, cropped_h = norm_image1.shape
-        pdb.set_trace()
         
         x_c_tensor1 = torch.from_numpy(norm_image1).float().to(device)
         y_pred1 = self.model.forward(x_c_tensor1.unsqueeze(0))
@@ -282,17 +281,17 @@ class UnetgnFineTune(BackendModel):
 
 class LastKLayersFineTune(UnetgnFineTune):
 
-    def __init__(self, model_fn, gpuid, last_k_layers=1):
-        super().__init__(model_fn, gpuid)
+    def __init__(self, model_fn, gpuid, last_k_layers=1, stage='all'):
+        super().__init__(model_fn, gpuid, stage=stage)
         self.old_inference_framework = copy.deepcopy(self.inf_framework)
         self.last_k_layers = last_k_layers
         print('in LastKLayersFineTune init')
-        self.init_model()
+        self.init_model(stage)
 
-    def init_model(self):
+    def init_model(self, stage):
         try:
             self.inf_framework = copy.deepcopy(self.old_inference_framework)
-            self.model = ClusterNet(self.inf_framework.model)
+            self.model = ClusterNet(self.inf_framework.model, stage=stage)
             self.model.to(self.device)
 
             k = self.last_k_layers
