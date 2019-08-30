@@ -113,7 +113,8 @@ class UnetgnFineTune(BackendModel):
         self.naip_data = None
         self.correction_labels = None
         self.tile_padding = 0
-
+        self.stage = stage
+        
         self.down_weight_padding = 40
 
         self.stride_x = self.input_size - self.down_weight_padding * 2
@@ -227,7 +228,7 @@ class UnetgnFineTune(BackendModel):
         self.model.to(self.device)
         
     def reset(self):
-        self.init_model()
+        self.init_model(self.stage)
         self.model_trained = False
         self.batch_x = []
         self.batch_y = []

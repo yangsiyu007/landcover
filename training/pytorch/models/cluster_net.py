@@ -36,7 +36,7 @@ class ClusterNet(nn.Module):
         ### Compute clustering outputs
         if not self.output_clustering_soft:
             x_new = rearrange(torch.tensor(x, dtype=torch.double).cuda(), '() h w c -> h w c')
-            output_clusterings_soft = run_clustering(x_new, n_classes=8, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200, radius_steps=([200]*2 + [25]*10))
+            output_clusterings_soft = run_clustering(x_new, n_classes=8, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200, radius_steps=([25]*2))
             pdb.set_trace()
             # Iterate to final clustering
             for output_clustering_soft in output_clusterings_soft: pass # save the clustering to see?
