@@ -354,7 +354,6 @@ def pred_patch():
     outputs = [Session.model.run(naip_data, extent, False)]
     
     for output in outputs:
-        pdb.set_trace()
         assert len(output.shape) == 3, "The model function should return an image shaped as (height, width, num_classes)"
         assert (output.shape[2] < output.shape[0] and output.shape[2] < output.shape[1]), "The model function should return an image shaped as (height, width, num_classes)" # assume that num channels is less than img dimensions
 

@@ -29,7 +29,6 @@ class ClusterNet(nn.Module):
         # x: (batch, height, width, channels), range [0, 1]
         output_neural_net_soft = self.model.forward(x).double()
 
-        pdb.set_trace()
         if self.stage == 'unet':
             return output_neural_net_soft
 
@@ -37,9 +36,10 @@ class ClusterNet(nn.Module):
         ### Compute clustering outputs
         if not self.output_clustering_soft:
             x_new = rearrange(torch.tensor(x, dtype=torch.double).cuda(), '() h w c -> h w c')
-            output_clusterings_soft = run_clustering(x_new, n_classes=8, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200, radius_steps=([25]*1))
+            output_clusterings_soft = run_clustering(x_new, n_classes=8, radius=25, n_iter=10, stride=8, warmup_steps=2, warmup_radius=200, radius_steps=([200]*2 + [25]*10))
+            pdb.set_trace()
             # Iterate to final clustering
-            for output_clustering_soft in output_clusterings_soft: pass
+            for output_clustering_soft in output_clusterings_soft: pass # save the clustering to see?
             self.output_clustering_soft = output_clustering_soft
 
         ### Compute votes
