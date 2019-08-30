@@ -127,7 +127,7 @@ class UnetgnFineTune(BackendModel):
         self.rows = 892
         self.cols = 892
 
-    def run(self, naip_data, extent, padding):
+    def run(self, naip_data, extent, padding, layer=None):
         if self.correction_labels is not None:
             self.set_corrections()
 
@@ -137,7 +137,7 @@ class UnetgnFineTune(BackendModel):
         x = np.swapaxes(x, 1, 2)
         x = x[:4, :, :]
         naip_data = x / 255.0
-        output = self.run_model_on_tile(naip_data)
+        output = self.run_model_on_tile(naip_data, layer=layer)
         if padding > 0:
             self.tile_padding = padding
         self.naip_data = naip_data  # keep non-trimmed size, i.e. with padding
@@ -235,13 +235,13 @@ class UnetgnFineTune(BackendModel):
         self.run_done = False
         self.num_corrected_pixels = 0
 
-    def run_model_on_tile(self, naip_tile, batch_size=32):
-        y_hat = self.predict_entire_image_unet_fine(naip_tile)
+    def run_model_on_tile(self, naip_tile, batch_size=32, layer=None):
+        y_hat = self.predict_entire_image_unet_fine(naip_tile, layer=layer)
         # take softmax first, then index [1:5]? (For disregarding NN "don't know" predictions in cluster-based vote)
         output = y_hat[:, :, 1:5]
         return softmax(output)
     
-    def predict_entire_image_unet_fine(self, x):
+    def predict_entire_image_unet_fine(self, x, layer=None):
         if torch.cuda.is_available():
             self.model.cuda()
         norm_image = x
@@ -261,7 +261,7 @@ class UnetgnFineTune(BackendModel):
         _, cropped_w, cropped_h = norm_image1.shape
         
         x_c_tensor1 = torch.from_numpy(norm_image1).float().to(device)
-        y_pred1 = self.model.forward(x_c_tensor1.unsqueeze(0))
+        y_pred1 = self.model.forward(x_c_tensor1.unsqueeze(0), layer=layer)
         y_hat1 = (Variable(y_pred1).data).cpu().numpy()
         
         out[:,

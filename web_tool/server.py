@@ -308,10 +308,12 @@ def pred_patch():
     # Inputs
     extent = data["extent"]
     dataset = data["dataset"]
+    layer = data["layer"]
     class_list = data["classes"]
     name_list = [item["name"] for item in class_list]
     color_list = [item["color"] for item in class_list]
 
+    
     # ------------------------------------------------------
     # Step 1
     #   Transform the input extent into a shapely geometry
@@ -351,7 +353,7 @@ def pred_patch():
 
     # Put this in when ready to send a stream of outputs to the client
     # outputs = Session.model.run(naip_data, extent, False)
-    outputs = [Session.model.run(naip_data, extent, False)]
+    outputs = [Session.model.run(naip_data, extent, False, layer=layer)]
     
     for output in outputs:
         assert len(output.shape) == 3, "The model function should return an image shaped as (height, width, num_classes)"

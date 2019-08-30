@@ -305,9 +305,21 @@ var requestPatches = function(polygon){
         });
         requestPatch(idx, polygon, i, ENDPOINTS[i]['url']); //TODO: this should be changed if we want to have a web tool that queries different backends
     }
+
+    var layers = ['all', 'unet', 'clustering'];
+    
+    for(var i=0; i<layers.length; i++){
+        //console.debug("Running requestPatch on " + ENDPOINTS[i]["url"]);
+        currentPatches[idx]["patches"].push({
+            "srcs": null
+        });
+        requestPatch(idx, polygon, i, BACKEND_URL, layers[i]); //TODO: this should be changed if we want to have a web tool that queries different backends
+    }
+
+
 };
 
-var requestPatch = function(idx, polygon, currentImgIdx, serviceURL){
+var requestPatch = function(idx, polygon, currentImgIdx, serviceURL, layer){
     var topleft = L.latLng(polygon[0][0], polygon[0][1]);
     var topleftProjected = L.CRS.EPSG3857.project(topleft);
     var bottomright = L.latLng(polygon[2][0], polygon[2][1]);
@@ -327,6 +339,7 @@ var requestPatch = function(idx, polygon, currentImgIdx, serviceURL){
             }
         },
         "classes": classes,
+	"layer": layer
     };
     
     $.ajax({

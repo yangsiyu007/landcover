@@ -24,12 +24,12 @@ class ClusterNet(nn.Module):
         self.output_clustering_soft = None
         self.stage = stage
         
-    def forward(self, x, hard_clustering=False):
+    def forward(self, x, hard_clustering=False, layer=None):
         ### Compute U-net outputs
         # x: (batch, height, width, channels), range [0, 1]
         output_neural_net_soft = self.model.forward(x).double()
 
-        if self.stage == 'unet':
+        if layer == 'unet':
             return output_neural_net_soft
 
         
@@ -70,7 +70,7 @@ class ClusterNet(nn.Module):
             
         output_clustering += 0.000001
 
-        if self.stage == 'clustering':
+        if layer == 'clustering':
             return output_clustering
 
         
