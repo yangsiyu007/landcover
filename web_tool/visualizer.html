@@ -128,7 +128,37 @@
                     maxZoom: 20,
                     attribution: 'Georeferenced Image'
                 })   
-            }
+            },
+            "nv_selfsim2_2013": {
+                "name": "NLCD SelfSim2 2013",
+                "tileLayer": L.tileLayer('http://msrcalebgeoserver.eastus.cloudapp.azure.com:8080/geoserver/gwc/service/wmts?layer=local:nv_selfsim2_2013&style=&tilematrixset=EPSG:3857&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix=EPSG:3857:{z}&TileCol={x}&TileRow={y}', {
+                    tms: false,
+                    minZoom: 8,
+                    maxNativeZoom: 18,
+                    maxZoom: 20,
+                    attribution: 'Georeferenced Image'
+                })
+            },
+            "nv_embed_selfsim_2013": {
+                "name": "NLCD SelfSim2 2017",
+                "tileLayer": L.tileLayer('http://msrcalebgeoserver.eastus.cloudapp.azure.com:8080/geoserver/gwc/service/wmts?layer=local:nv_selfsim2_2017&style=&tilematrixset=EPSG:3857&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix=EPSG:3857:{z}&TileCol={x}&TileRow={y}', {
+                    tms: false,
+                    minZoom: 8,
+                    maxNativeZoom: 18,
+                    maxZoom: 20,
+                    attribution: 'Georeferenced Image'
+                })
+            },
+            "nv_selfsim2_prior": {
+                "name": "NLCD SelfSim2 Prior",
+                "tileLayer": L.tileLayer('http://msrcalebgeoserver.eastus.cloudapp.azure.com:8080/geoserver/gwc/service/wmts?layer=local:nv_selfsim2_prior&style=&tilematrixset=EPSG:3857&Service=WMTS&Request=GetTile&Version=1.0.0&Format=image/jpeg&TileMatrix=EPSG:3857:{z}&TileCol={x}&TileRow={y}', {
+                    tms: false,
+                    minZoom: 8,
+                    maxNativeZoom: 18,
+                    maxZoom: 20,
+                    attribution: 'Georeferenced Image'
+                })
+            },
         };
         
 
@@ -145,9 +175,13 @@
             baseMaps["Old Embedded NLCD 2013"] = tileObjects["nv_embed_2013"]["tileLayer"];
             baseMaps["Old Embedded NLCD 2017"] = tileObjects["nv_embed_2017"]["tileLayer"];
 
-            baseMaps["New Embedded NLCD 2013"] = tileObjects["nv_embed_selfsim_2013"]["tileLayer"];
-            baseMaps["New Embedded NLCD 2017"] = tileObjects["nv_embed_selfsim_2017"]["tileLayer"];
+            baseMaps["Selfsim NLCD 2013"] = tileObjects["nv_embed_selfsim_2013"]["tileLayer"];
+            baseMaps["Selfsim NLCD 2017"] = tileObjects["nv_embed_selfsim_2017"]["tileLayer"];
             
+            baseMaps["Selfsim2 NLCD 2013"] = tileObjects["nv_selfsim2_2013"]["tileLayer"];
+            baseMaps["Selfsim2 NLCD 2017"] = tileObjects["nv_selfsim2_2017"]["tileLayer"];
+            baseMaps["Selfsim2 NLCD Prior"] = tileObjects["nv_selfsim2_prior"]["tileLayer"];
+
             baseMaps["NLCD Ground Truth"] = tileObjects["nv_nlcd_old"]["tileLayer"];
 
             baseMaps["OpenStreetMap"] = getOSMLayer();
