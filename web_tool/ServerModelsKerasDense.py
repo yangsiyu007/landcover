@@ -1,17 +1,11 @@
-import sys, os, time, copy
 import numpy as np
-
+import scipy.optimize
 import sklearn.base
-from sklearn.neural_network import MLPClassifier
-from sklearn.ensemble import RandomForestClassifier
-
-import tensorflow as tf
 import tensorflow.keras as keras
+from sklearn.neural_network import MLPClassifier
 
 from ServerModelsAbstract import BackendModel
-from web_tool import ROOT_DIR
 
-import scipy.optimize
 
 def softmax(z):
     assert len(z.shape) == 2

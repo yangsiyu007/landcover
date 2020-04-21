@@ -1,39 +1,37 @@
-import time
-import threading
-import subprocess
 import socket
+import subprocess
+import threading
+import time
 from queue import Queue
 
-from Session import Session
-
+from Models import load_models
 from ServerModelsRPC import ModelRPC
-from ServerModelsKerasDense import KerasDenseFineTune
-
+from Session import Session
 from log import LOGGER
 
-from Models import load_models
 MODELS = load_models()
 
 
 def session_monitor(session_handler, session_timeout_seconds=900):
-    ''' This is a `Thread()` that is starting when the program is run. It is responsible for finding which of the `Session()` objects
-    in `SESSION_MAP` haven't been used recently and killing them.
+    ''' This is a `Thread()` that is starting when the program is run. It is responsible for finding
+    which of the `Session()` objects in `SESSION_MAP` haven't been used recently and killing them.
 
-    TODO: SESSION_HANDLER needs to be thread safe because we call it from here and the main sever threads
+    TODO: SESSION_HANDLER needs to be thread safe because we call it from here and the main server threads
     '''
     LOGGER.info("Starting session monitor thread")
     while True:
         session_ids_to_kill = []
         for session_id, session in session_handler._SESSION_MAP.items():
-            #LOGGER.info("SESSION MONITOR - Checking session (%s) for activity" % (session_id))
+            # LOGGER.info("SESSION MONITOR - Checking session (%s) for activity" % (session_id))
             time_inactive = time.time() - session.last_interaction_time
             if time_inactive > session_timeout_seconds:
                 session_ids_to_kill.append(session_id)
-        
+
         for session_id in session_ids_to_kill:
-            LOGGER.info("SESSION MONITOR - Session (%s) has been inactive for over %d seconds, destroying" % (session_id, session_timeout_seconds))
+            LOGGER.info("SESSION MONITOR - Session (%s) has been inactive for over %d seconds, destroying" % (
+                session_id, session_timeout_seconds))
             session_handler.kill_session(session_id)
-        
+
         time.sleep(5)
 
 
@@ -52,11 +50,9 @@ def get_free_tcp_port():
 class SessionHandler():
 
     def __init__(self, local, args):
-        self._WORKERS = [ # TODO: I hardcode that there are 4 GPUs available on the local machine
-            {"type": "local", "gpu_id": None},
-            {"type": "local", "gpu_id": None},
-            {"type": "local", "gpu_id": None},
-            {"type": "local", "gpu_id": None}
+        self._WORKERS = [  # TODO: I hardcode that there are 4 GPUs available on the local machine
+            {"type": "local", "gpu_id": 0},
+            {"type": "local", "gpu_id": 1}
         ]
 
         self._WORKER_POOL = Queue()
@@ -66,14 +62,12 @@ class SessionHandler():
         self._expired_sessions = set()
         self._SESSION_MAP = dict()
         self._SESSION_INFO = dict()
-        
+
         self.local = local
         self.args = args
 
-
     def is_active(self, session_id):
         return session_id in self._SESSION_MAP
-
 
     def is_expired(self, session_id):
         '''This is checked in `manage_sessions` in server.py before each request.
@@ -86,17 +80,14 @@ class SessionHandler():
         '''
         return session_id in self._expired_sessions
 
-
     def _set_expired(self, session_id):
         self._expired_sessions.add(session_id)
-
 
     def cleanup_expired_session(self, session_id):
         '''After `manage_sessions` cleans up the session on the client side, then
         the session_id can be removed from the expired session set.
-        ''' 
+        '''
         self._expired_sessions.remove(session_id)
-
 
     def _spawn_local_worker(self, port, model_fn, gpu_id, fine_tune_layer):
         command = [
@@ -107,10 +98,10 @@ class SessionHandler():
             "--port", str(port)
         ]
         if gpu_id is not None:
-            command.append("--gpu %d" % (gpu_id))
+            command.append("--gpu")
+            command.append(str(gpu_id))
         process = subprocess.Popen(command, shell=False)
         return process
-
 
     def create_session(self, session_id, model_key):
         if session_id in self._SESSION_MAP:
@@ -118,11 +109,11 @@ class SessionHandler():
 
         if model_key not in MODELS:
             raise ValueError("%s is not a valid model, check the keys in models.json" % (model_key))
-        
+
         model_fn = MODELS[model_key]["fn"]
         fine_tune_layer = MODELS[model_key]["fine_tune_layer"]
 
-        worker = self._WORKER_POOL.get() # this will block until we have a free one
+        worker = self._WORKER_POOL.get()  # this will block until we have a free one
 
         if worker["type"] == "local":
             random_port = get_free_tcp_port()
@@ -135,13 +126,12 @@ class SessionHandler():
                 "worker": worker,
                 "process": process
             }
-            LOGGER.info("Created a local worker for (%s) on GPU %s" % (session_id, str(gpu_id)))
+            LOGGER.info(f"Created a local worker for {session_id} on GPU {gpu_id}")
 
         elif worker["type"] == "remote":
             raise NotImplementedError("Remote workers aren't implemented yet")
         else:
             raise ValueError("Worker type %s isn't recognized" % (worker["type"]))
-
 
     def kill_session(self, session_id):
         ''' Two code paths should be able to kill a session:
@@ -157,11 +147,10 @@ class SessionHandler():
 
             # TODO: is there anything that needs to be cleaned up at the session level (e.g. saving data)?
             del self._SESSION_MAP[session_id]
-            
-            self._set_expired(session_id) # we set this to expired so that it can be cleaned up on the client side
-        else:
-            raise ValueError("Tried to kill a non-existing Session")
 
+            self._set_expired(session_id)  # we set this to expired so that it can be cleaned up on the client side
+        else:
+            raise ValueError("Tried to kill a non-existing Session with ID {}".format(session_id))
 
     def get_session(self, session_id):
         if self.is_active(session_id):
@@ -169,13 +158,11 @@ class SessionHandler():
         else:
             raise ValueError("Tried to get a non-existing Session")
 
-
     def touch_session(self, session_id):
         if self.is_active(session_id):
             self._SESSION_MAP[session_id].last_interaction_time = time.time()
         else:
             raise ValueError("Tried to update time on a non-existing Session")
-
 
     def start_monitor(self, session_timeout_seconds=900):
         session_monitor_thread = threading.Thread(target=session_monitor, args=(self, session_timeout_seconds))

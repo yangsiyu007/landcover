@@ -1,17 +1,17 @@
-import os
 import json
+import os
 
-import utm
 import fiona
 import fiona.transform
 import shapely
 import shapely.geometry
-
-from web_tool import ROOT_DIR
+import utm
 
 from DataLoader import DataLoaderCustom, DataLoaderUSALayer, DataLoaderBasemap
+from web_tool import ROOT_DIR
 
 _DATASET_FN = "datasets.json"
+
 
 def get_area_from_geometry(geom, src_crs="epsg:4326"):
     if geom["type"] == "Polygon":
@@ -25,22 +25,27 @@ def get_area_from_geometry(geom, src_crs="epsg:4326"):
     hemisphere = "+north" if lat > 0 else "+south"
     dest_crs = "+proj=utm +zone=%d %s +datum=WGS84 +units=m +no_defs" % (zone_number, hemisphere)
     projected_geom = fiona.transform.transform_geom(src_crs, dest_crs, geom)
-    area = shapely.geometry.shape(projected_geom).area / 1000000.0 # we calculate the area in square meters then convert to square kilometers
+    area = shapely.geometry.shape(
+        projected_geom).area / 1000000.0  # we calculate the area in square meters then convert to square kilometers
     return area
 
-def _load_geojson_as_list(fn):
-    ''' Takes a geojson file as input and outputs a list of shapely `shape` objects in that file and their corresponding areas in km^2.
 
-    We calculate area here by re-projecting the shape into its local UTM zone, converting it to a shapely `shape`, then using the `.area` property.
-    '''
+def _load_geojson_as_list(fn):
+    """Returns shapes in input geojson as a list of shapely shapes, a list of their areas in km^2 and the CRS.
+
+    We calculate area here by re-projecting the shape into its local UTM zone, converting it to a shapely `shape`,
+    then using the `.area` property.
+    
+    Args:
+        fn: Path to a geojson file
+    """
     shapes = []
     areas = []
-    crs = None
     with fiona.open(fn) as f:
         src_crs = f.crs
         for row in f:
             geom = row["geometry"]
-            
+
             area = get_area_from_geometry(geom, src_crs)
             areas.append(area)
 
@@ -59,41 +64,53 @@ def _load_dataset(dataset):
                 shapes, areas, crs = _load_geojson_as_list(fn)
                 shape_layer["geoms"] = shapes
                 shape_layer["areas"] = areas
-                shape_layer["crs"] = crs["init"] # TODO: will this break with fiona version; I think `.crs` will turn into a PyProj object
+                shape_layer["crs"] = crs[
+                    "init"]  # TODO: will this break with fiona version; I think `.crs` will turn into a PyProj object
                 shape_layers[shape_layer["name"]] = shape_layer
             else:
-                return False # TODO: maybe we should make these errors more descriptive (explain why we can't load a dataset)
+                print("WARNING: Cannot load dataset because shape layer at {} does not exist".format(fn))
+                return False
 
     # Step 2: make sure the dataLayer exists
     if dataset["dataLayer"]["type"] == "CUSTOM":
         fn = os.path.join(ROOT_DIR, dataset["dataLayer"]["path"])
         if not os.path.exists(fn):
-            return False # TODO: maybe we should make these errors more descriptive (explain why we can't load a dataset)
+            print("WARNING: Cannot load dataset because data layer at {} does not exist".format(fn))
+            return False
 
     # Step 3: setup the appropriate DatasetLoader
     if dataset["dataLayer"]["type"] == "CUSTOM":
-        data_loader = DataLoaderCustom(dataset["dataLayer"]["path"], shape_layers, dataset["dataLayer"]["padding"])
+        data_loader = DataLoaderCustom(data_fn=dataset["dataLayer"]["path"],
+                                       shapes=shape_layers,
+                                       padding=dataset["dataLayer"]["padding"])
+
     elif dataset["dataLayer"]["type"] == "USA_LAYER":
-        data_loader = DataLoaderUSALayer(shape_layers, dataset["dataLayer"]["padding"])
+        data_loader = DataLoaderUSALayer(shapes=shape_layers,
+                                         padding=dataset["dataLayer"]["padding"])
+
     elif dataset["dataLayer"]["type"] == "BASEMAP":
-        data_loader = DataLoaderBasemap(dataset["dataLayer"]["path"], dataset["dataLayer"]["padding"])
+        data_loader = DataLoaderBasemap(data_url=dataset["dataLayer"]["path"],  # TODO should this be path or url?
+                                        padding=dataset["dataLayer"]["padding"])
     else:
-        return False # TODO: maybe we should make these errors more descriptive (explain why we can't load a dataset)
+        print("WARNING: Cannot load dataset because no appropriate DatasetLoader found for data layer type {}".format(
+            dataset["dataLayer"]["type"]))
+        return False
 
     return {
         "data_loader": data_loader,
         "shape_layers": shape_layers,
     }
 
+
 def load_datasets():
-    dataset_json = json.load(open(os.path.join(ROOT_DIR,_DATASET_FN),"r"))
+    dataset_json = json.load(open(os.path.join(ROOT_DIR, _DATASET_FN)))
     datasets = dict()
 
     for key, dataset in dataset_json.items():
         dataset_object = _load_dataset(dataset)
-        
+
         if dataset_object is False:
-            print("WARNING: files are missing, we will not be able to server '%s' dataset" % (key)) 
+            print("WARNING: files are missing, we will not be able to serve '%s' dataset" % (key))
         else:
             datasets[key] = dataset_object
 

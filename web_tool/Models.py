@@ -15,14 +15,15 @@ def _load_model(model):
     }
 
 def load_models():
-    model_json = json.load(open(os.path.join(ROOT_DIR,_MODEL_FN),"r"))
+    model_json = json.load(open(os.path.join(ROOT_DIR, _MODEL_FN),"r"))
     models = dict()
 
     for key, model in model_json.items():
         model_object = _load_model(model)
         
         if model_object is False:
-            print("WARNING: files are missing, we will not be able to serve '%s' model" % (key)) 
+            print("WARNING: file {} is missing, we will not be able to serve model '{}'".format(
+                model["model"]["fn"], key))
         else:
             models[key] = model_object
 

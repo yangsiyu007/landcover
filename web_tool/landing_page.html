@@ -192,13 +192,15 @@
               window.location.href = `/lg_platform.html?dataset=${selectedDataset}&model=${selectedModel}`;
             },
             error: function(jqXHR, textStatus){
-              // TODO: Notify fail
+              // TODO: Notify failure
+              console.debug(`Post call to createSession failed, status ${textStatus}`);
             },
             dataType: "json",
             contentType: "application/json"
           });
         }else{
-          // TODO: Notify fail
+          // TODO: Notify failure
+          console.debug("Start server clicked without specifying both dataset and model.");
         }
       })
     }
